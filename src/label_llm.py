@@ -23,10 +23,9 @@ Motif = Literal["livraison", "emballage", "qualite", "prix", "service", "autre"]
 
 
 class Etiquetage(BaseModel):
-    # TODO : trois champs, DANS CET ORDRE (cours 1, section 7) :
-    #   evidence (str), motif_libre (str), motifs (liste de Motif).
-    # Pourquoi cet ordre ? Relis la règle 3 de la section 6.
-    pass
+    evidence: str          # généré en 1er : le passage de l'avis qui justifie
+    motif_libre: str       # généré en 2e : le problème en 3 à 6 mots
+    motifs: list[Motif]    # généré en dernier : l'étiquette
 
 
 def load_prompt(version):
@@ -34,55 +33,74 @@ def load_prompt(version):
 
 
 def build_messages(system_prompt, title, text):
-    # TODO : renvoie la liste de deux messages (rôles "system" puis "user").
-    # Le message user contient le titre et le texte, par ex. "Title: ...\nReview: ...".
-    raise NotImplementedError
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": f"Title: {title}\nReview: {text}"},
+    ]
 
 
 def check_rules(motifs):
     """Renvoie la liste des règles violées (liste vide = valide)."""
-    # TODO : construis une liste `problems` et ajoute :
-    #   "liste_vide" si motifs est vide,
-    #   "autre_combine" si "autre" est présent avec un autre motif,
-    #   "doublon" si un motif apparaît deux fois.
-    raise NotImplementedError
+    problems = []
+    if not motifs:
+        problems.append("liste_vide")
+    if "autre" in motifs and len(set(motifs)) > 1:
+        problems.append("autre_combine")
+    if len(motifs) != len(set(motifs)):
+        problems.append("doublon")
+    return problems
 
 
 def call_with_retry(fn, max_attempts=MAX_ATTEMPTS, sleep=time.sleep):
     """Appelle fn() ; en cas d'erreur réessayable, attend 1, 2, 4, 8 s (backoff exponentiel)."""
-    # TODO : boucle sur max_attempts essais.
-    #   - try : return fn()
-    #   - except Exception as e :
-    #       code = getattr(e, "status_code", None)
-    #       l'erreur est réessayable si code est dans RETRY_CODES,
-    #       ou si code est None ET que e n'est pas un ValueError/TypeError/KeyError (= problème réseau).
-    #       Si elle n'est pas réessayable, ou si c'était le dernier essai : `raise` (relance l'erreur).
-    #       Sinon : sleep(2 ** attempt)  -> attend 1, 2, 4, 8 s.
-    # Pourquoi `sleep` est un paramètre ? Pour que les tests vérifient les attentes sans attendre vraiment.
-    raise NotImplementedError
+    for attempt in range(max_attempts):
+        try:
+            return fn()
+        except Exception as e:
+            code = getattr(e, "status_code", None)
+            retryable = code in RETRY_CODES or (
+                code is None and not isinstance(e, (ValueError, TypeError, KeyError))
+            )
+            if not retryable or attempt == max_attempts - 1:
+                raise
+            sleep(2 ** attempt)
 
 
 def already_done(out_path):
-    """Identifiants déjà présents dans le fichier de sortie (pour la reprise)."""
-    # TODO : si out_path n'existe pas -> set() vide.
-    # Sinon : ouvrir le fichier (encoding="utf-8"), et renvoyer l'ensemble des "review_id"
-    # de chaque ligne non vide (json.loads(ligne)["review_id"]).
-    raise NotImplementedError
+    """Identifiants déjà étiquetés avec succès (les lignes en erreur seront refaites)."""
+    if not out_path.exists():
+        return set()
+    with out_path.open(encoding="utf-8") as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    return {r["review_id"] for r in rows if "error" not in r}
 
 
 def label_one(client, system_prompt, row):
     """Un appel, une ligne de résultat (dict prêt à écrire en JSONL)."""
-    # TODO :
-    #  1. t0 = time.perf_counter()
-    #  2. rep = call_with_retry(lambda: client.chat.parse(...)) avec :
-    #       model=MODEL, response_format=Etiquetage, temperature=0, max_tokens=200,
-    #       random_seed=42, messages=build_messages(...)
-    #  3. latence = time.perf_counter() - t0
-    #  4. parsed = rep.choices[0].message.parsed   (peut être None si la réponse est vide)
-    #  5. renvoyer un dict avec les clés :
-    #       review_id, model, evidence, motif_libre, motifs, problems (check_rules),
-    #       prompt_tokens, completion_tokens (dans rep.usage), latency_s (arrondie à 3 décimales)
-    raise NotImplementedError
+    messages = build_messages(system_prompt, row["title"], row["text"])
+    t0 = time.perf_counter()
+    rep = call_with_retry(lambda: client.chat.parse(
+        model=MODEL,
+        response_format=Etiquetage,
+        temperature=0,
+        max_tokens=200,
+        random_seed=42,
+        messages=messages,
+    ))
+    latency = time.perf_counter() - t0
+    parsed = rep.choices[0].message.parsed
+    motifs = parsed.motifs if parsed else []
+    return {
+        "review_id": row["review_id"],
+        "model": MODEL,
+        "evidence": parsed.evidence if parsed else None,
+        "motif_libre": parsed.motif_libre if parsed else None,
+        "motifs": motifs,
+        "problems": check_rules(motifs),
+        "prompt_tokens": rep.usage.prompt_tokens,
+        "completion_tokens": rep.usage.completion_tokens,
+        "latency_s": round(latency, 3),
+    }
 
 
 def label_part(client, df, system_prompt, prompt_version, out_path, pause_s=PAUSE_S):
