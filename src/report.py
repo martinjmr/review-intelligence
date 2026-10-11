@@ -21,13 +21,12 @@ def load_labels(path):
 
 def motif_shares(df):
     """Part des avis valides qui portent chaque motif (un avis peut en porter plusieurs)."""
-    # TODO :
-    #  1. ne garder que les avis dont la liste "motifs" n'est pas vide ;
-    #  2. compter chaque motif (collections.Counter sur tous les motifs de toutes les listes) ;
-    #  3. renvoyer {motif: part arrondie à 3 décimales}, du plus fréquent au moins fréquent.
-    # Attention : un avis peut porter 2 motifs, donc la somme des parts peut dépasser 1. C'est normal.
-    raise NotImplementedError
-
+    labeled = df[df["motifs"].map(len) > 0]
+    n = len(labeled)
+    counts = Counter()
+    for m in labeled["motifs"]:
+        counts.update(set(m))          # chaque motif compte une fois par avis
+    return {motif: round(c / n, 3) for motif, c in counts.most_common()}
 
 def cost_and_latency(df, n_target=100_000):
     ok = df.dropna(subset=["prompt_tokens"])
@@ -44,11 +43,13 @@ def cost_and_latency(df, n_target=100_000):
 
 def verdict(shares, expected=("livraison", "emballage", "qualite", "prix", "service")):
     """Liste des alertes ; liste vide = la liste de motifs tient."""
-    # TODO : renvoie la liste des alertes :
-    #   "<motif> < 5%" pour chaque motif de `expected` dont la part est inférieure à MIN_SHARE
-    #   (un motif absent de `shares` a une part de 0) ;
-    #   "autre > 25%" si la part de "autre" dépasse MAX_AUTRE.
-    raise NotImplementedError
+    alerts = []
+    for motif in expected:
+        if shares.get(motif, 0) < MIN_SHARE:
+            alerts.append(f"{motif} < 5%")
+    if shares.get("autre", 0) > MAX_AUTRE:
+        alerts.append("autre > 25%")
+    return alerts
 
 
 def main():
@@ -57,8 +58,9 @@ def main():
     args = parser.parse_args()
     df = load_labels(args.path)
     if "error" in df:
-        n_err = df["error"].notna().sum()
-        df = df[df["error"].isna()]
+        err = df["error"].notna()
+        n_err = len(set(df.loc[err, "review_id"]) - set(df.loc[~err, "review_id"]))
+        df = df[~err]
     else:
         n_err = 0
     df["motifs"] = df["motifs"].map(lambda m: m if isinstance(m, list) else [])
