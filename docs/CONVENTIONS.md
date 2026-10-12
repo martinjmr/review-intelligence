@@ -1,17 +1,24 @@
 # Conventions du projet (résumé des décisions du cours 1)
 
-## Motifs (version v1, à confirmer à l'étape 1)
+## Motifs (version v2, décidée le 12 oct. 2026 ; à valider sur les 200 avis d'explo)
 | Motif | Définition | Frontière |
 | --- | --- | --- |
-| livraison | délai, colis perdu ou non reçu, produit abîmé par le transport (fondu, chaud) | boîte écrasée ou qui fuit -> emballage |
-| emballage | emballage abîmé, ouvert, qui fuit, mal conçu | produit lui-même mauvais -> qualite |
-| qualite | goût, texture, fraîcheur, périmé, corps étranger, non conforme à la description | |
+| reception | problème lié au transport ou au colis : retard, colis perdu ou incomplet, produit cassé, écrasé, fondu ou qui fuit à l'arrivée, emballage abîmé, ouvert ou mal conçu | produit arrivé intact mais mauvais -> gout_texture ou fraicheur_securite |
+| gout_texture | goût, texture ou odeur d'un produit arrivé intact et non périmé | rance, rassis, moisi -> fraicheur_securite |
+| fraicheur_securite | périmé, rassis, rance, moisi, insectes, corps étranger, effet sur la santé, allergène non signalé | prioritaire sur gout_texture |
+| non_conforme | ne correspond pas à la description : mauvais produit, format ou quantité annoncée, ingrédient non annoncé, étiquetage trompeur | reçu ce qui était annoncé mais jugé trop peu pour le prix -> prix |
 | prix | trop cher, mauvais rapport quantité/prix, hausse de prix | |
-| service | service client, vendeur, retour ou remboursement | |
-| autre | aucun des motifs ci-dessus ; jamais combiné avec un autre | |
+| autre | aucun des motifs ci-dessus, y compris aucune plainte ; jamais combiné avec un autre | |
 
 Multi-étiquette : un avis peut porter plusieurs motifs.
-Seuils de l'étape 1 : chaque motif >= 5 % des avis, « autre » <= 25 %. Sinon : prompt v2 et nouvelle liste.
+Seuils de l'étape 1 : chaque motif >= 5 % des avis, aucun motif > 50 %, « autre » <= 25 %. Sinon : nouvelle version du prompt.
+Le seuil de 5 % sert surtout à la mesure : sur les 300 avis de test, 5 % = 15 avis positifs, le minimum pour un F1 par motif
+dont l'intervalle de confiance reste utilisable (environ ± 0,2 sur le rappel).
+
+Historique v1 (livraison, emballage, qualite, prix, service, autre), mesuré sur les 200 avis d'explo le 12 oct. 2026 :
+qualite 77 %, emballage 15 %, prix 14,5 %, livraison 6 %, autre 3,5 %, service 0 % ; accord avec la relecture de Martin 27/30.
+Raisons du changement : service absent de ces données (les remarques sur le vendeur vont dans les avis vendeurs d'Amazon),
+qualite trop large, frontière livraison / emballage incohérente (21 avis « arrivés abîmés », 6 étiquetages différents).
 
 ## Sortie du LLM
 - Schéma Pydantic `Etiquetage` : `evidence` (str), puis `motif_libre` (str, 3-6 mots), puis `motifs` (liste).
@@ -38,6 +45,8 @@ Seuils de l'étape 1 : chaque motif >= 5 % des avis, « autre » <= 25 %. Sinon 
 - Vérifier la diversité des 500 000 premiers avis (produits, années) : le streaming lit dans l'ordre du fichier.
 
 ## Coûts (hypothèses à remplacer par les mesures réelles)
-- ~600 tokens de prompt système + ~80 d'avis en entrée, ~50 en sortie.
+- Mesuré le 12 oct. 2026 (prompt v1, mistral-small, 200 avis) : 266 tokens en entrée, 47 en sortie en moyenne ;
+  latence médiane 0,95 s, p95 3,1 s (retries probables, non enregistrés : ajouter un champ `attempts`).
+- Hypothèse initiale : ~600 tokens de prompt système + ~80 d'avis en entrée, ~50 en sortie.
 - Mistral Small 4 : 0,15 $ / 0,60 $ par million de tokens (source tierce, 6 oct. 2026).
 - 200 avis ~0,03 $ ; 5 000 avis ~0,66 $ ; 100 000 avis ~13 $.

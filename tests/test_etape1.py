@@ -103,7 +103,7 @@ class _FakeClient:
 
     def _parse(self, **kwargs):
         self.n_calls += 1
-        parsed = Etiquetage(evidence="arrived late", motif_libre="late delivery", motifs=["livraison"])
+        parsed = Etiquetage(evidence="arrived late", motif_libre="late delivery", motifs=["reception"])
         message = SimpleNamespace(parsed=parsed)
         usage = SimpleNamespace(prompt_tokens=600, completion_tokens=40)
         return SimpleNamespace(choices=[SimpleNamespace(message=message)], usage=usage)
@@ -118,20 +118,22 @@ def test_label_part_ecrit_puis_reprend_sans_refaire(tmp_path):
     lines = [json.loads(l) for l in out.read_text(encoding="utf-8").splitlines()]
     assert [l["review_id"] for l in lines] == ["a", "b", "c"]
     assert client.n_calls == 3                                 # rien n'a été refait
-    assert lines[0]["motifs"] == ["livraison"] and lines[0]["prompt_version"] == "v1"
+    assert lines[0]["motifs"] == ["reception"] and lines[0]["prompt_version"] == "v1"
     assert lines[0]["prompt_tokens"] == 600
 
 
 # ---------- report.py ----------
 
 def test_motif_shares_multi_etiquette():
-    df = pd.DataFrame({"motifs": [["qualite"], ["qualite", "prix"], ["autre"], ["livraison"]]})
+    df = pd.DataFrame({"motifs": [["gout_texture"], ["gout_texture", "prix"], ["autre"], ["reception"]]})
     s = motif_shares(df)
-    assert s["qualite"] == 0.5 and s["prix"] == 0.25
-
+    assert s["gout_texture"] == 0.5 and s["prix"] == 0.25
 
 def test_verdict():
-    ok = {"livraison": .1, "emballage": .1, "qualite": .5, "prix": .1, "service": .06, "autre": .1}
+    ok = {"reception": .2, "gout_texture": .4, "fraicheur_securite": .15,
+          "non_conforme": .08, "prix": .14, "autre": .04}
     assert verdict(ok) == []
-    bad = dict(ok, service=0.01, autre=0.4)
+    bad = dict(ok, non_conforme=0.01, autre=0.4)
     assert len(verdict(bad)) == 2
+    trop_gros = dict(ok, gout_texture=0.77)
+    assert verdict(trop_gros) == ["gout_texture > 50%"]

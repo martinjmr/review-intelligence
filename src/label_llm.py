@@ -19,7 +19,7 @@ MAX_ATTEMPTS = 5
 PAUSE_S = 2.2            # mistral-small : 20 000 tokens/min max -> ~28 avis/min
 RETRY_CODES = {429, 500, 502, 503, 504}
 
-Motif = Literal["livraison", "emballage", "qualite", "prix", "service", "autre"]
+Motif = Literal["reception", "gout_texture", "fraicheur_securite", "non_conforme", "prix", "autre"]
 
 
 class Etiquetage(BaseModel):

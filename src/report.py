@@ -5,13 +5,17 @@ Usage :  python -m src.report data/labels_explo_v1.jsonl
 import argparse
 import json
 from collections import Counter
+from typing import get_args
 
 import pandas as pd
+
+from src.label_llm import Motif
 
 PRICE_IN = 0.15 / 1e6     # $ par token d'entrée  (à vérifier dans la console, noter la date)
 PRICE_OUT = 0.60 / 1e6    # $ par token de sortie
 MIN_SHARE = 0.05          # chaque motif doit couvrir au moins 5 % des avis
 MAX_AUTRE = 0.25          # et "autre" au plus 25 %
+MAX_SHARE = 0.50          # et aucun motif au-dessus de 50 % (motif fourre-tout)
 
 
 def load_labels(path):
@@ -41,12 +45,15 @@ def cost_and_latency(df, n_target=100_000):
     }
 
 
-def verdict(shares, expected=("livraison", "emballage", "qualite", "prix", "service")):
+def verdict(shares, expected=tuple(m for m in get_args(Motif) if m != "autre")):
     """Liste des alertes ; liste vide = la liste de motifs tient."""
     alerts = []
     for motif in expected:
         if shares.get(motif, 0) < MIN_SHARE:
             alerts.append(f"{motif} < 5%")
+    for motif, share in shares.items():
+        if share > MAX_SHARE:
+            alerts.append(f"{motif} > 50%")
     if shares.get("autre", 0) > MAX_AUTRE:
         alerts.append("autre > 25%")
     return alerts
