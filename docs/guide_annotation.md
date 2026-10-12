@@ -1,6 +1,6 @@
 # Guide d'annotation des motifs d'insatisfaction : v1
 
-**Statut** : brouillon. **Gelé le** : À TOI (date, avant le premier avis de test).
+**Statut** : gelé. **Gelé le** : 12 oct. 2026, avant le premier avis de test.
 **Écrit à partir de** : liste v2 (CONVENTIONS.md, 12 oct. 2026) et des 200 avis d'explo. Aucun avis de test.
 Pour relire un avis d'explo cité : `python -m src.annotate --voir 7 61 96`.
 
@@ -45,7 +45,6 @@ Validé le 12 oct. 2026 :
 - Décider sur ce qui est **écrit**, pas sur ce qui s'est « vraiment » passé.
 - Le **titre compte autant que le texte** : un motif nommé seulement dans le titre compte (n° 65 : titre « taste », texte « mon chien refuse d'en manger » -> `g`).
 - Une plainte sur une variante d'un assortiment (une saveur sur trois) compte comme une plainte.
-- À TOI : d'autres règles qui valent pour tous les motifs, si l'annotation en fait apparaître.
 
 ## 5. Jurisprudence : les cas limites tranchés
 
@@ -72,6 +71,6 @@ Une ligne par groupe : la règle en une phrase, décidable sur le texte seul, et
 
 | Date | Version | Changement | Né d'un avis de test ? | Avis déjà annotés à revoir |
 | --- | --- | --- | --- | --- |
-| À TOI | v1 | Gel du guide | non | aucun |
+| 12 oct. 2026 | v1 | Gel du guide (sans échauffement sur explo) | non | aucun |
 
 Règle : une règle née d'un avis de test entre dans ce guide (pour annoter), jamais dans un prompt avant la mesure.
