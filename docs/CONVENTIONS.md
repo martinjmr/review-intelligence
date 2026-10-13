@@ -51,6 +51,25 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   (TF-IDF + régression logistique ou DistilBERT, choisi sur un jeu de validation, jamais sur le test) contre mistral-small
   avec le prompt v3, par bootstrap apparié sur les 300 avis de test. Toutes les autres comparaisons sont exploratoires.
 
+## Prompt v3 (étape 3, décisions du 13 oct. 2026)
+- Contenu (`prompts/v3.txt`) : liste v2 + règles du guide v1, une ligne par règle + 6 exemples d'explo dans le prompt
+  système (n° 178, 169, 149, 163 en extrait, 64, 61 : un par grappe d'erreurs de v2). 2 970 caractères, ~700 tokens
+  d'entrée estimés. Budget : 4 000 caractères au plus (au-delà, la limite de 20 000 tokens/min ralentit l'étiquetage).
+- Modèle figé : `mistral-small-2603` (cible de l'alias `mistral-small-latest`, vérifiée le 13 oct. 2026). Le même modèle
+  et le même prompt étiquettent le train et, après la passe 2, le test.
+- Diagnostic de v2 sur les 35 avis d'explo tranchés dans le guide : 10/35 conformes (échantillon de cas difficiles, ne
+  mesure pas l'exactitude globale). Erreurs groupées : non_conforme à tort (8 avis), autre manqué (7), plaintes
+  secondaires oubliées (4), reception et fraicheur_securite manqués.
+- Critère d'acceptation, fixé avant tout appel v3 :
+  1. au moins 22 réussis sur les 29 avis tranchés dans le guide qui ne servent pas d'exemples (v2 : 10/29).
+     Réussi = étiquette identique quand le guide donne l'étiquette complète (24 a, 44 g, 50 r+f, 58 a, 66 f+r, 86 a,
+     87 r+g, 112 a, 146 a, 147 r+g+p, 152 f+g, 160 f, 183 a) ; sinon, motif requis présent (r : 38, 75, 101, 180, 181 ;
+     f : 7, 11, 22, 92, 96, 129, 134, 157 ; n : 26 ; g : 19, 65) ;
+  2. moins de 2 % d'invalides sur les 200 avis d'explo ;
+  3. sur les avis où v2 et v3 diffèrent, annotés à l'aveugle par Martin avec le guide, v3 a raison au moins aussi
+     souvent que v2.
+- Question ouverte : n° 38 (« kind of pricey per bottle ») -> r ou r + p ? Sans effet sur le critère (seul r est vérifié).
+
 ## Sortie du LLM
 - Schéma Pydantic `Etiquetage` : `evidence` (str), puis `motif_libre` (str, 3-6 mots), puis `motifs` (liste).
   L'ordre compte : la justification est générée avant l'étiquette.
