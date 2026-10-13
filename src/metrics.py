@@ -25,8 +25,11 @@ def to_matrix(labels):
 
     Colonnes dans l'ordre de MOTIFS : la colonne j vaut 1 si l'avis porte le motif MOTIFS[j].
     """
-    # TODO : une matrice de zéros, puis un 1 par (avis, motif) présent. Un motif inconnu doit planter.
-    raise NotImplementedError
+    Y = np.zeros((len(labels), len(MOTIFS)), dtype=int)
+    for i, motifs in enumerate(labels):
+        for m in motifs:
+            Y[i, MOTIFS.index(m)] = 1
+    return Y
 
 
 def cohen_kappa(a, b):
@@ -35,17 +38,17 @@ def cohen_kappa(a, b):
     kappa = (p_o - p_e) / (1 - p_e). Renvoie float("nan") si p_e = 1 (kappa non défini :
     les deux annotateurs n'ont utilisé qu'une seule et même étiquette).
     """
-    # TODO :
-    # 1. p_o : la part des positions où a et b sont égaux ;
-    # 2. p_e : pour chaque étiquette k vue dans a ou b, (part de k dans a) x (part de k dans b), puis la somme ;
-    # 3. le cas p_e = 1, puis la formule.
-    raise NotImplementedError
+    a, b = np.asarray(a), np.asarray(b)
+    p_o = np.mean(a == b)
+    p_e = sum(np.mean(a == k) * np.mean(b == k) for k in set(a.tolist()) | set(b.tolist()))
+    if p_e == 1:
+        return float("nan")
+    return float((p_o - p_e) / (1 - p_e))
 
 
 def kappa_par_motif(Y1, Y2):
     """{motif: kappa} entre deux matrices 0/1 : chaque colonne est un problème oui/non à part."""
-    # TODO : un cohen_kappa par colonne, dans l'ordre de MOTIFS.
-    raise NotImplementedError
+    return {m: cohen_kappa(Y1[:, j], Y2[:, j]) for j, m in enumerate(MOTIFS)}
 
 
 def scores(Y_true, Y_pred):
@@ -54,12 +57,24 @@ def scores(Y_true, Y_pred):
     Renvoie {"par_motif": {motif: {"p", "r", "f1", "support"}}, "micro_f1": float, "macro_f1": float}.
     Convention : toute division par zéro donne 0 (comme zero_division=0 dans scikit-learn).
     """
-    # TODO :
-    # 1. par motif (colonne) : TP, FP, FN ; p = TP/(TP+FP), r = TP/(TP+FN), f1 = 2TP/(2TP+FP+FN) ;
-    #    support = nombre de positifs dans Y_true ;
-    # 2. micro : additionner TP, FP, FN de tous les motifs, puis la formule du F1 ;
-    # 3. macro : moyenne simple des 6 F1.
-    raise NotImplementedError
+    def div(a, b):
+        return float(a / b) if b else 0.0
+
+    Y_true, Y_pred = np.asarray(Y_true), np.asarray(Y_pred)
+    tp = ((Y_true == 1) & (Y_pred == 1)).sum(axis=0)
+    fp = ((Y_true == 0) & (Y_pred == 1)).sum(axis=0)
+    fn = ((Y_true == 1) & (Y_pred == 0)).sum(axis=0)
+    par_motif = {}
+    for j, m in enumerate(MOTIFS):
+        par_motif[m] = {
+            "p": div(tp[j], tp[j] + fp[j]),
+            "r": div(tp[j], tp[j] + fn[j]),
+            "f1": div(2 * tp[j], 2 * tp[j] + fp[j] + fn[j]),
+            "support": int(tp[j] + fn[j]),
+        }
+    micro = div(2 * tp.sum(), 2 * tp.sum() + fp.sum() + fn.sum())
+    macro = float(np.mean([par_motif[m]["f1"] for m in MOTIFS]))
+    return {"par_motif": par_motif, "micro_f1": micro, "macro_f1": macro}
 
 
 def bootstrap_ci(Y_true, Y_pred, metric, n_boot=N_BOOT, seed=42, alpha=0.05):
@@ -68,12 +83,14 @@ def bootstrap_ci(Y_true, Y_pred, metric, n_boot=N_BOOT, seed=42, alpha=0.05):
     metric(Y_true, Y_pred) -> float. On tire des AVIS (des lignes) avec remise.
     Les tirages où la métrique vaut nan sont ignorés (np.nanpercentile).
     """
-    # TODO :
-    # 1. un générateur local : np.random.default_rng(seed) ;
-    # 2. n_boot fois : tirer n indices d'avis avec remise (n = nombre de lignes), recalculer metric
-    #    sur ces lignes, avec les MÊMES indices pour Y_true et Y_pred ;
-    # 3. bornes = percentiles alpha/2 et 1 - alpha/2 des valeurs obtenues.
-    raise NotImplementedError
+    rng = np.random.default_rng(seed)
+    n = len(Y_true)
+    values = []
+    for _ in range(n_boot):
+        idx = rng.integers(0, n, size=n)
+        values.append(metric(Y_true[idx], Y_pred[idx]))
+    low, high = np.nanpercentile(values, [100 * alpha / 2, 100 * (1 - alpha / 2)])
+    return metric(Y_true, Y_pred), float(low), float(high)
 
 
 def paired_bootstrap(Y_true, P_a, P_b, metric, n_boot=N_BOOT, seed=42, alpha=0.05):
@@ -82,8 +99,14 @@ def paired_bootstrap(Y_true, P_a, P_b, metric, n_boot=N_BOOT, seed=42, alpha=0.0
     Apparié : à chaque tirage, A et B sont évalués sur les MÊMES avis.
     Renvoie (écart, borne basse, borne haute).
     """
-    # TODO : comme bootstrap_ci, mais chaque tirage calcule metric(B) - metric(A) sur les mêmes indices.
-    raise NotImplementedError
+    rng = np.random.default_rng(seed)
+    n = len(Y_true)
+    diffs = []
+    for _ in range(n_boot):
+        idx = rng.integers(0, n, size=n)
+        diffs.append(metric(Y_true[idx], P_b[idx]) - metric(Y_true[idx], P_a[idx]))
+    low, high = np.nanpercentile(diffs, [100 * alpha / 2, 100 * (1 - alpha / 2)])
+    return metric(Y_true, P_b) - metric(Y_true, P_a), float(low), float(high)
 
 
 # ---------- Fourni ----------
