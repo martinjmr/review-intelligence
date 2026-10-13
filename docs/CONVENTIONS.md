@@ -49,8 +49,8 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
 - Comparaisons : « B bat A » seulement si l'IC du bootstrap apparié de l'écart exclut 0 ; sinon, décision sur le coût et la
   latence. Comparaison principale (validée le 13 oct. 2026, avant tout résultat) : macro-F1 du meilleur modèle entraîné
   (TF-IDF + régression logistique ou DistilBERT, choisi sur un jeu de validation, jamais sur le test) contre mistral-small
-  avec le prompt retenu à l'étape 3 (v3 prévu ; v3 refusé le 13 oct., v4 s'il est accepté), par bootstrap apparié sur les
-  300 avis de test. Toutes les autres comparaisons sont exploratoires.
+  (`mistral-small-2603`) avec le prompt v4 (retenu le 13 oct. 2026 à la place de v3, prévu au départ : voir section
+  Prompts v3 et v4), par bootstrap apparié sur les 300 avis de test. Toutes les autres comparaisons sont exploratoires.
 
 ## Prompts v3 et v4 (étape 3, décisions du 13 oct. 2026)
 - Contenu (`prompts/v3.txt`) : liste v2 + règles du guide v1, une ligne par règle + 6 exemples d'explo dans le prompt
@@ -83,6 +83,22 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   étiqueté avec v4 à condition que les critères 2 et 3 soient remplis ; l'échec est noté comme limite connue (ici et
   dans le livrable). Si le critère 2 ou 3 échoue : arrêt et discussion. Raison : les 29 avis du critère 1 ont servi à
   écrire le guide, v3 et v4 (le critère le plus contaminé) ; le critère 3 porte sur des avis jamais regardés.
+- Résultats v4 (200 avis d'explo) : critère 2 0 % d'invalides (rempli) ; critère 1 18/29 (raté ; v3 21, v2 10).
+  Seuls les avis où un seul prompt a raison comptent : v3 contre v4 6 contre 3 (test du signe p = 0,51), v4 contre v2
+  10 contre 2 (p = 0,04). 13 des 29 cas ont changé d'étiquette entre v3 et v4 pour 2 lignes de prompt modifiées : sur
+  les cas limites, le modèle est instable. Critère 3 : 29 avis divergents, annotés par un second annotateur et non par Martin (écart
+  au critère ; 14 doutes sur 29 ; cet annotateur avait rédigé le brouillon du prompt et connaissait l'étiquette v3 de quelques avis par les
+  motif_libre de v3) : v4 juste 8, v2 juste 12, les deux faux 9 (p = 0,50) -> raté. Défauts vus : v4 ajoute un second
+  motif à une plainte unique (6 avis) et classe en autre des plaintes de goût peu détaillées (2 avis ; aussi n° 19 et 181).
+  Mesures : attempts = 1 sur 200, latence médiane 0,70 s, p95 1,49 s ; 790 tokens d'entrée, 45,5 de sortie.
+  Parts : gout_texture 53,5 %, fraicheur_securite 18,5 %, reception 17,5 %, prix 14 %, autre 9,5 %, non_conforme 4,5 %
+  (référence de Martin sur le test : non_conforme 8 %).
+- **Décision (13 oct. 2026, Martin), contraire à la règle de repli** (qui prévoyait arrêt et discussion) : le train est
+  étiqueté avec v4, et v4 est le prompt de la comparaison principale. Raisons : sur les 58 avis mesurés (29 du guide +
+  29 divergents), v4 gagne 18 contre 14 (p = 0,60, match nul) ; 0 % d'invalides ; plus proche du guide, qui a servi à
+  annoter la référence du test. Limites connues, à reporter dans le livrable : critères 1 et 3 ratés, non_conforme
+  peut-être sous-étiqueté, empilement de motifs. Contrôle facultatif : Martin annote les 29 avis divergents (document
+  « Explo : 29 avis divergents v2 / v4 et prompt v4 ») ; on mesure alors l'accord entre les deux annotateurs.
 
 ## Sortie du LLM
 - Schéma Pydantic `Etiquetage` : `evidence` (str), puis `motif_libre` (str, 3-6 mots), puis `motifs` (liste).

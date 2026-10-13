@@ -64,6 +64,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("a", help="prompt de référence, ex. v2")
     parser.add_argument("b", help="prompt candidat, ex. v3")
+    parser.add_argument("--annotations", default=str(ANNOTATIONS),
+                        help="annotations d'explo servant de référence au critère 3 (défaut : celles de Martin)")
     args = parser.parse_args()
     a, b = args.a, args.b
 
@@ -101,7 +103,7 @@ def main():
     print(f"\n{len(div)} avis où {a} et {b} diffèrent (hors guide et exemples) -> {div_path}")
 
     # Critère 3 : sur ces avis, qui a raison selon l'annotation de Martin (étiquette identique) ?
-    ann = load_annotations(ANNOTATIONS)
+    ann = load_annotations(Path(args.annotations))
     gold = {rid: set(r["motifs"]) for (rid, rnd), r in ann.items() if rnd == 1}
     done = [rid for rid in div if rid in gold]
     if not done:
