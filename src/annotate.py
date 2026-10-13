@@ -5,7 +5,7 @@ Usage :
   python -m src.annotate                         # passe 1 : les 300 avis de test, reprise automatique
   python -m src.annotate --revoir doutes         # fin de passe 1 : trancher les avis marqués « ! »
   python -m src.annotate --corriger "mot"        # revoir les avis déjà annotés dont le titre contient « mot »
-  python -m src.annotate --round 2               # passe 2, au moins 3 jours plus tard : 100 avis tirés au hasard
+  python -m src.annotate --round 2               # passe 2, au moins 3 jours plus tard : 50 avis tirés au hasard
   python -m src.annotate --revoir desaccords     # après la mesure d'accord : trancher les écarts entre passes
 Produit : data/annotations_<part>.jsonl (une ligne par réponse ; pour un même avis et une même passe,
 la dernière ligne l'emporte). Passes : 1 = première annotation, 2 = ré-annotation, 3 = arbitrage des désaccords.
@@ -27,7 +27,7 @@ from src.label_llm import Motif, check_rules
 POOL = Path("data/pool.parquet")
 OUT = Path("data/annotations_test.jsonl")
 GUIDE_VERSION = "v1"      # à changer à chaque modification du guide (docs/guide_annotation.md)
-N_REANNOT = 100           # avis ré-annotés en passe 2 (cours 2, section 5)
+N_REANNOT = 50            # avis ré-annotés en passe 2 (décision du 13 oct. 2026 ; cours 2, section 5)
 MIN_DAYS = 3              # délai minimal entre passe 1 et passe 2, pour oublier ses réponses
 
 MOTIFS = get_args(Motif)
