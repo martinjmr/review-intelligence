@@ -83,8 +83,12 @@ def test_retry_reessaie_sur_429_puis_reussit():
             raise _HttpError(429)
         return "ok"
 
-    assert call_with_retry(flaky, sleep=waits.append) == "ok"
+    assert call_with_retry(flaky, sleep=waits.append) == ("ok", 3)   # (résultat, nombre d'essais)
     assert waits == [1, 2]                      # backoff exponentiel
+
+
+def test_retry_un_seul_essai_si_tout_va_bien():
+    assert call_with_retry(lambda: "ok", sleep=lambda s: None) == ("ok", 1)
 
 
 def test_retry_abandonne_tout_de_suite_sur_401():
@@ -99,14 +103,17 @@ class _FakeClient:
 
     def __init__(self):
         self.n_calls = 0
+        self.requested_model = None
         self.chat = SimpleNamespace(parse=self._parse)
 
     def _parse(self, **kwargs):
         self.n_calls += 1
+        self.requested_model = kwargs["model"]                  # le modèle demandé
         parsed = Etiquetage(evidence="arrived late", motif_libre="late delivery", motifs=["reception"])
         message = SimpleNamespace(parsed=parsed)
         usage = SimpleNamespace(prompt_tokens=600, completion_tokens=40)
-        return SimpleNamespace(choices=[SimpleNamespace(message=message)], usage=usage)
+        return SimpleNamespace(choices=[SimpleNamespace(message=message)], usage=usage,
+                               model="modele-de-la-reponse")    # le modèle annoncé par l'API
 
 
 def test_label_part_ecrit_puis_reprend_sans_refaire(tmp_path):
@@ -120,6 +127,9 @@ def test_label_part_ecrit_puis_reprend_sans_refaire(tmp_path):
     assert client.n_calls == 3                                 # rien n'a été refait
     assert lines[0]["motifs"] == ["reception"] and lines[0]["prompt_version"] == "v1"
     assert lines[0]["prompt_tokens"] == 600
+    assert client.requested_model == "mistral-small-2603"      # modèle figé (alias interdit)
+    assert lines[0]["model"] == "modele-de-la-reponse"         # on enregistre rep.model, pas la constante
+    assert lines[0]["attempts"] == 1
 
 
 # ---------- report.py ----------

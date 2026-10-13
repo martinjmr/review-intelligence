@@ -13,8 +13,7 @@ from typing import Literal
 import pandas as pd
 from pydantic import BaseModel
 
-MODEL = "mistral-small-latest"
-POOL = Path("data/pool.parquet")
+MODEL = "mistral-small-2603"   # figé : l'alias mistral-small-latest peut changer de ciblePOOL = Path("data/pool.parquet")
 MAX_ATTEMPTS = 5
 PAUSE_S = 2.2            # mistral-small : 20 000 tokens/min max -> ~28 avis/min
 RETRY_CODES = {429, 500, 502, 503, 504}
@@ -52,10 +51,11 @@ def check_rules(motifs):
 
 
 def call_with_retry(fn, max_attempts=MAX_ATTEMPTS, sleep=time.sleep):
-    """Appelle fn() ; en cas d'erreur réessayable, attend 1, 2, 4, 8 s (backoff exponentiel)."""
+    """Appelle fn() ; en cas d'erreur réessayable, attend 1, 2, 4, 8 s (backoff exponentiel).
+    Renvoie (résultat, nombre d'essais)."""
     for attempt in range(max_attempts):
         try:
-            return fn()
+            return fn(), attempt + 1
         except Exception as e:
             code = getattr(e, "status_code", None)
             retryable = code in RETRY_CODES or (
@@ -79,7 +79,7 @@ def label_one(client, system_prompt, row):
     """Un appel, une ligne de résultat (dict prêt à écrire en JSONL)."""
     messages = build_messages(system_prompt, row["title"], row["text"])
     t0 = time.perf_counter()
-    rep = call_with_retry(lambda: client.chat.parse(
+    rep, attempts = call_with_retry(lambda: client.chat.parse(
         model=MODEL,
         response_format=Etiquetage,
         temperature=0,
@@ -92,7 +92,7 @@ def label_one(client, system_prompt, row):
     motifs = parsed.motifs if parsed else []
     return {
         "review_id": row["review_id"],
-        "model": MODEL,
+        "model": rep.model,
         "evidence": parsed.evidence if parsed else None,
         "motif_libre": parsed.motif_libre if parsed else None,
         "motifs": motifs,
@@ -100,6 +100,7 @@ def label_one(client, system_prompt, row):
         "prompt_tokens": rep.usage.prompt_tokens,
         "completion_tokens": rep.usage.completion_tokens,
         "latency_s": round(latency, 3),
+        "attempts": attempts,
     }
 
 
