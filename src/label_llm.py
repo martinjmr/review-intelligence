@@ -14,6 +14,7 @@ import pandas as pd
 from pydantic import BaseModel
 
 MODEL = "mistral-small-2603"   # figé : l'alias mistral-small-latest peut changer de ciblePOOL = Path("data/pool.parquet")
+POOL = Path("data/pool.parquet")
 MAX_ATTEMPTS = 5
 PAUSE_S = 2.2            # mistral-small : 20 000 tokens/min max -> ~28 avis/min
 RETRY_CODES = {429, 500, 502, 503, 504}
