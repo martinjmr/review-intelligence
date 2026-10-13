@@ -7,6 +7,7 @@ Usage :
   python -m src.annotate --corriger "mot"        # revoir les avis déjà annotés dont le titre contient « mot »
   python -m src.annotate --round 2               # passe 2, au moins 3 jours plus tard : 50 avis tirés au hasard
   python -m src.annotate --revoir desaccords     # après la mesure d'accord : trancher les écarts entre passes
+  python -m src.annotate --part explo --ids F    # n'annoter que les avis listés dans F (un review_id par ligne)
 Produit : data/annotations_<part>.jsonl (une ligne par réponse ; pour un même avis et une même passe,
 la dernière ligne l'emporte). Passes : 1 = première annotation, 2 = ré-annotation, 3 = arbitrage des désaccords.
 """
@@ -188,6 +189,8 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--voir", type=int, nargs="+", default=None,
                         help="afficher les avis d'explo n° ... (numérotation du journal : 1 à 200), puis quitter")
+    parser.add_argument("--ids", default=None,
+                        help="fichier de review_id (un par ligne) : n'annoter que ces avis (ex. divergences entre prompts)")
     args = parser.parse_args()
 
     if args.voir:
@@ -223,6 +226,11 @@ def main():
         print("Lance d'abord `python -m src.metrics accord` : l'arbitrage ne change pas cette mesure,")
         print("mais c'est elle qu'on veut garder.")
         annotate([by_id[r] for r in ids], 3, out, previous=previous)
+    elif args.ids:
+        wanted = [r for r in Path(args.ids).read_text(encoding="utf-8").split() if r in by_id]
+        todo = [by_id[r] for r in wanted if r not in done1]
+        print(f"{len(todo)} avis à faire sur {len(wanted)} listés dans {args.ids}. Tape ? pour l'aide.")
+        annotate(todo, 1, out)
     elif args.round == 1:
         todo = [r for r in test.to_dict("records") if r["review_id"] not in done1]
         print(f"{len(todo)} avis à faire. Tape ? pour l'aide.")

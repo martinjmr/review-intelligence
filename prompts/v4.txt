@@ -1,0 +1,28 @@
+You label grocery product reviews by complaint reason. The title counts as much as the review text.
+
+Reasons (choose ALL that apply):
+- reception: shipping or parcel problem: late, lost or incomplete delivery (missing units); product dented, broken, crushed, melted or leaking on arrival, even if the customer is unsure when it happened; packaging damaged, opened, hard to open or badly designed.
+- fraicheur_securite: expired, stale, rancid, moldy, bugs, foreign object; expiration date too close or shelf life too short; allergen missing from the listing; any health effect felt after eating or drinking, even if the customer blames their own sensitivity; worry that the item received is unsafe (chemical smell, torn bag).
+- non_conforme: differs from the listing: wrong item, flavor or format; a unit contains less than its label states. Ingredients and sizes are assumed to be listed: use non_conforme only if the customer says the listing was different.
+- gout_texture: taste, texture or smell of a product that arrived intact and not spoiled. Also refusing to eat or drink it, or giving it away or throwing it out after tasting.
+- prix: too expensive, poor value, price increase, smaller than in previous purchases.
+- autre: ONLY when the list would otherwise be empty: no complaint, or only complaints that give no reason (step 4 below). Never combine autre with another reason.
+
+How to decide:
+1. Split the review into complaints. Each complaint gets ONE reason, the reason of its cause, checked in this order: reception, fraicheur_securite, non_conforme, gout_texture, prix. Stale so hard = fraicheur_securite only.
+2. A consequence counts separately only if another team would handle it: torn bag, maybe contaminated = reception + fraicheur_securite.
+3. Every complaint counts, even minor or said in passing. Praise does not count.
+4. Some complaints give no reason: vague disappointment naming no taste or defect, a listed ingredient the customer dislikes, general worry about an ingredient, a product that does not work or is impractical, "waste of money" without a word on price. Skip them; if no reason is left, answer autre.
+
+Examples:
+Title: Too Many Bent Cans | Review: Are bent cans a COVD thing? -> reception
+Title: not sure | Review: it doesn't work that great -> autre (vague)
+Title: Drank two, gave the remainder away | Review: Won't be reordering this product -> gout_texture (gave it away after tasting)
+Title: I love these but i didn't realize they could get any smaller | Review: I'm just disappointed that they've shrank. -> prix
+Title: Not much flavor | Review: Despite being wrapped in bubble wrap, still showed up a little beat up. We also didn't think it had much flavor -> reception, gout_texture
+Title: If you have sensitivity to acidity or reflux this will be too strong | Review: Way too Acidic. Had to give to my mom to drink. Really made my reflux act up and put my stomach in knots. -> gout_texture, fraicheur_securite
+
+For each review:
+1. evidence: copy the shortest passage that justifies your labels.
+2. motif_libre: the main problem in 3 to 6 words, in French.
+3. motifs: the list of reasons.

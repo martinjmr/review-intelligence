@@ -49,9 +49,10 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
 - Comparaisons : « B bat A » seulement si l'IC du bootstrap apparié de l'écart exclut 0 ; sinon, décision sur le coût et la
   latence. Comparaison principale (validée le 13 oct. 2026, avant tout résultat) : macro-F1 du meilleur modèle entraîné
   (TF-IDF + régression logistique ou DistilBERT, choisi sur un jeu de validation, jamais sur le test) contre mistral-small
-  avec le prompt v3, par bootstrap apparié sur les 300 avis de test. Toutes les autres comparaisons sont exploratoires.
+  avec le prompt retenu à l'étape 3 (v3 prévu ; v3 refusé le 13 oct., v4 s'il est accepté), par bootstrap apparié sur les
+  300 avis de test. Toutes les autres comparaisons sont exploratoires.
 
-## Prompt v3 (étape 3, décisions du 13 oct. 2026)
+## Prompts v3 et v4 (étape 3, décisions du 13 oct. 2026)
 - Contenu (`prompts/v3.txt`) : liste v2 + règles du guide v1, une ligne par règle + 6 exemples d'explo dans le prompt
   système (n° 178, 169, 149, 163 en extrait, 64, 61 : un par grappe d'erreurs de v2). 2 970 caractères, ~700 tokens
   d'entrée estimés. Budget : 4 000 caractères au plus (au-delà, la limite de 20 000 tokens/min ralentit l'étiquetage).
@@ -69,6 +70,19 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   3. sur les avis où v2 et v3 diffèrent, annotés à l'aveugle par Martin avec le guide, v3 a raison au moins aussi
      souvent que v2.
 - Question ouverte : n° 38 (« kind of pricey per bottle ») -> r ou r + p ? Sans effet sur le critère (seul r est vérifié).
+- Résultats v3 (200 avis d'explo) : critère 1 21/29 (v2 10/29), critère 2 3,5 % d'invalides (7 avis, tous
+  `autre_combine` ; v2 1,5 %) -> **v3 refusé**, critère 3 non mesuré. Cause : la définition d'autre listait les plaintes
+  qui ne donnent aucun motif, et le modèle a utilisé autre comme étiquette de ces plaintes (n° 44 : g + a).
+  Mesures : attempts = 1 sur 200, latence médiane 0,71 s, p95 1,26 s ; 754 tokens d'entrée, 47 de sortie.
+  Parts : gout_texture 53,5 %, fraicheur_securite 19 %, reception 18 %, prix 13 %, autre 13 %, non_conforme 5,5 %.
+  Les 7 autres échecs du critère 1 ont chacun une cause différente (24, 58, 66, 87, 92, 160, 180) : non corrigés.
+- v4 (`prompts/v4.txt`, 3 135 caractères) = v3 + une seule correction, la seule cause commune à plusieurs avis :
+  autre réservé à la liste vide ; les plaintes sans motif passent à l'étape 4 de « How to decide ». Mêmes exemples,
+  mêmes trois critères, toujours contre v2.
+- Règle de repli, fixée avant le run v4 : plus d'itération après v4. Si v4 rate seulement le critère 1, le train est
+  étiqueté avec v4 à condition que les critères 2 et 3 soient remplis ; l'échec est noté comme limite connue (ici et
+  dans le livrable). Si le critère 2 ou 3 échoue : arrêt et discussion. Raison : les 29 avis du critère 1 ont servi à
+  écrire le guide, v3 et v4 (le critère le plus contaminé) ; le critère 3 porte sur des avis jamais regardés.
 
 ## Sortie du LLM
 - Schéma Pydantic `Etiquetage` : `evidence` (str), puis `motif_libre` (str, 3-6 mots), puis `motifs` (liste).
