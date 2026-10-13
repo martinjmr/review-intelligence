@@ -47,7 +47,9 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   référence / modèle par motif. Réponses manquantes ou invalides d'un modèle = liste vide (comptées comme erreurs) ;
   division par zéro = 0.
 - Comparaisons : « B bat A » seulement si l'IC du bootstrap apparié de l'écart exclut 0 ; sinon, décision sur le coût et la
-  latence. Comparaison principale à annoncer avant l'étape 4 (proposition du cours 2 §7 : meilleur modèle entraîné contre le LLM).
+  latence. Comparaison principale (validée le 13 oct. 2026, avant tout résultat) : macro-F1 du meilleur modèle entraîné
+  (TF-IDF + régression logistique ou DistilBERT, choisi sur un jeu de validation, jamais sur le test) contre mistral-small
+  avec le prompt v3, par bootstrap apparié sur les 300 avis de test. Toutes les autres comparaisons sont exploratoires.
 
 ## Sortie du LLM
 - Schéma Pydantic `Etiquetage` : `evidence` (str), puis `motif_libre` (str, 3-6 mots), puis `motifs` (liste).
