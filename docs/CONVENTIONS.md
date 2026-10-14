@@ -109,8 +109,8 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   étiqueté avec v4, et v4 est le prompt de la comparaison principale. Raisons : sur les 58 avis mesurés (29 du guide +
   29 divergents), v4 gagne 18 contre 14 (p = 0,60, match nul) ; 0 % d'invalides ; plus proche du guide, qui a servi à
   annoter la référence du test. Limites connues, à reporter dans le livrable : critères 1 et 3 ratés, non_conforme
-  peut-être sous-étiqueté, empilement de motifs. Contrôle facultatif : Martin annote les 29 avis divergents (document
-  « Explo : 29 avis divergents v2 / v4 et prompt v4 ») ; on mesure alors l'accord entre les deux annotateurs.
+  peut-être sous-étiqueté, empilement de motifs. Contrôle facultatif (annotation des 29 avis divergents par Martin,
+  pour mesurer l'accord entre les deux annotateurs) : écarté le 14 oct. 2026, non fait.
 - Train étiqueté avec v4 (13-14 oct. 2026, `data/labels_train_v4.jsonl`) : 5 000 / 5 000, 0 erreur ; invalides 0,4 %
   (21 avis, tous `autre_combine`) ; attempts = 1 pour 4 999 avis, 5 pour 1 ; latence médiane 0,67 s, p95 1,3 s ;
   790,6 tokens d'entrée, 45,6 de sortie ; coût 0,7296 $ (14,59 $ pour 100 000 avis). Parts : gout_texture 59 %,
