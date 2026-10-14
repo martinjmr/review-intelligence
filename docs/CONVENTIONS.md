@@ -42,6 +42,16 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   (graine 42), au moins 3 jours après, dans l'outil, sans les notes de passe 1, et avant de lire les étiquettes du LLM sur
   le test avis par avis. Passe 3 : arbitrage des désaccords ; référence finale = passe 3 si elle existe, sinon passe 1.
   `data/annotations_test.jsonl` est suivi par git (exception dans `.gitignore`).
+- Passe 2 faite le 14 oct. 2026, 2 jours après l'annotation hors outil et 1 jour après la saisie, au lieu de 3 jours :
+  écart décidé par Martin (la saisie, à 1,2 s par avis en médiane, n'était pas une relecture). 50 avis, 0 doute, durée
+  médiane 18 s par avis (27 min). Accord exact 0,70 [0,58 ; 0,82], 15 avis en désaccord. Kappa (positifs passe 1 /
+  passe 2) : gout_texture 0,68 [0,48 ; 0,84] (26 / 24) ; ordres de grandeur seulement : reception 0,49 (7 / 4),
+  fraicheur_securite 0,39 (5 / 4), prix 0,74 (8 / 5) ; non interprétables (trop peu de positifs) : non_conforme 0,88
+  (4 / 5), autre 0,46 (6 / 9). En passe 2, moins de motifs secondaires (reception 7 -> 4, prix 8 -> 5) et plus d'autre
+  (6 -> 9). L'accord est peut-être gonflé par la reconnaissance des avis (délai court, annotation rapide).
+  Plafond de mesure (cours 2, section 5) : 2e(1 − e) = 0,30 donne e ≈ 0,18 ; environ 18 % des avis de la référence
+  portent une étiquette instable, et même un modèle parfait n'aurait qu'environ 82 % d'accord exact avec la passe 1
+  (hypothèse d'erreurs indépendantes, optimiste).
 - Métrique principale (13 oct. 2026, avant tout résultat sur le test) : macro-F1 sur les 6 motifs, avec IC 95 % par bootstrap
   percentile (2 000 tirages d'avis, graine 42). À côté : P / R / F1 / support par motif, micro-F1, accord exact, kappa
   référence / modèle par motif. Réponses manquantes ou invalides d'un modèle = liste vide (comptées comme erreurs) ;
