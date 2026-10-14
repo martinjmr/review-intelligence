@@ -120,6 +120,26 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   Limite connue : dans les motif_libre des avis « autre », quelques vraies plaintes avalées par l'étape 4 (« difficile
   à ouvrir », « goût non apprécié ») ; estimation grossière ~1 % du train.
 
+## Modèles entraînés (étape 4, décisions du 14 oct. 2026)
+- Étiquettes d'entraînement : `data/labels_train_v4.jsonl`, lignes `error` ignorées, les 21 invalides exclus (option A,
+  plutôt que les réparer en retirant « autre » ou les garder : aucune étiquette inventée ; 0,4 % du train, effet
+  attendu inférieur à 0,005 de macro-F1).
+- Jeu de validation : 1 000 avis tirés parmi les 5 000 du train (`review_id` triés, `np.random.default_rng(42)
+  .permutation`, les 1 000 premiers), tirage fait avant l'exclusion des invalides pour que le découpage ne dépende pas
+  des étiquettes. Résultat : 3 983 avis d'entraînement, 996 de validation (positifs en validation : reception 104,
+  gout_texture 571, fraicheur_securite 159, non_conforme 84, prix 150, autre 89). Tirage au hasard et non par produit :
+  20,7 % des avis de test portent sur un produit présent dans le train, la validation doit reproduire cette situation.
+- Rôles : l'entraînement apprend les poids ; la validation sert à choisir les hyperparamètres, la règle de sortie et le
+  meilleur modèle entraîné (TF-IDF ou DistilBERT) ; le test mesure une seule fois chaque modèle figé, sans retour aux
+  réglages ensuite.
+- Les étiquettes de validation sont celles de mistral-small v4 : un score de validation mesure l'accord avec ce
+  professeur, pas avec la référence de Martin.
+- Pas de ré-entraînement sur entraînement + validation après le choix (décision du 14 oct. 2026 ; raisons : seuils
+  réglés sur la validation, même traitement que DistilBERT). Faits mesurés ensuite (cours 3, section 6) : la courbe
+  d'apprentissage monte encore (macro-F1 de validation 0,542 avec 1 000 avis, 0,606 avec 2 000, 0,636 avec 3 000,
+  0,660 avec 3 983) et, avec `class_weight="balanced"`, régler les seuils n'apporte rien (0,651 contre 0,650). Point
+  rouvert, à trancher avant la mesure sur le test.
+
 ## Résultats sur le test (300 avis, référence finale de Martin)
 | Modèle | macro-F1 [IC 95 %] | micro-F1 [IC 95 %] | Accord exact [IC 95 %] | Coût / 100 000 avis | Latence médiane / p95 | Date |
 | --- | --- | --- | --- | --- | --- | --- |
