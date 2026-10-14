@@ -86,9 +86,9 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
 - Résultats v4 (200 avis d'explo) : critère 2 0 % d'invalides (rempli) ; critère 1 18/29 (raté ; v3 21, v2 10).
   Seuls les avis où un seul prompt a raison comptent : v3 contre v4 6 contre 3 (test du signe p = 0,51), v4 contre v2
   10 contre 2 (p = 0,04). 13 des 29 cas ont changé d'étiquette entre v3 et v4 pour 2 lignes de prompt modifiées : sur
-  les cas limites, le modèle est instable. Critère 3 : 29 avis divergents, annotés par un second annotateur et non par Martin (écart
-  au critère ; 14 doutes sur 29 ; cet annotateur avait rédigé le brouillon du prompt et connaissait l'étiquette v3 de quelques avis par les
-  motif_libre de v3) : v4 juste 8, v2 juste 12, les deux faux 9 (p = 0,50) -> raté. Défauts vus : v4 ajoute un second
+  les cas limites, le modèle est instable. Critère 3 : 29 avis divergents, annotés par un second annotateur et non par Martin
+  (écart au critère ; 14 doutes sur 29 ; cet annotateur avait rédigé le brouillon du prompt et connaissait l'étiquette
+  v3 de quelques avis par les motif_libre de v3) : v4 juste 8, v2 juste 12, les deux faux 9 (p = 0,50) -> raté. Défauts vus : v4 ajoute un second
   motif à une plainte unique (6 avis) et classe en autre des plaintes de goût peu détaillées (2 avis ; aussi n° 19 et 181).
   Mesures : attempts = 1 sur 200, latence médiane 0,70 s, p95 1,49 s ; 790 tokens d'entrée, 45,5 de sortie.
   Parts : gout_texture 53,5 %, fraicheur_securite 18,5 %, reception 17,5 %, prix 14 %, autre 9,5 %, non_conforme 4,5 %
