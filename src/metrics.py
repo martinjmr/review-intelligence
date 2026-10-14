@@ -109,7 +109,7 @@ def paired_bootstrap(Y_true, P_a, P_b, metric, n_boot=N_BOOT, seed=42, alpha=0.0
     return metric(Y_true, P_b) - metric(Y_true, P_a), float(low), float(high)
 
 
-# ---------- Fourni ----------
+# ---------- Chargement, rapports et ligne de commande ----------
 
 def macro_f1(Y_true, Y_pred):
     return scores(Y_true, Y_pred)["macro_f1"]

@@ -97,7 +97,7 @@ def pick_reannotation(ids, n, seed=42):
     return random.Random(seed).sample(list(ids), n)
 
 
-# ---------- Fourni : affichage et boucle de saisie ----------
+# ---------- Affichage et boucle de saisie ----------
 
 def show(row, i, total, previous=None):
     print("\n" + "=" * 100)
