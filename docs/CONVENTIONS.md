@@ -162,6 +162,7 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
 | Modèle | macro-F1 [IC 95 %] | micro-F1 [IC 95 %] | Accord exact [IC 95 %] | Coût / 100 000 avis | Latence médiane / p95 | Date |
 | --- | --- | --- | --- | --- | --- | --- |
 | `mistral-small-2603` + prompt v4 | 0,770 [0,716 ; 0,816] | 0,843 [0,809 ; 0,876] | 0,763 [0,717 ; 0,810] | 14,6 $ | 0,76 s / 1,19 s | 14 oct. 2026 |
+| TF-IDF + régression logistique (C = 3, mots + paires, `min_df` = 3, 4 979 avis étiquetés par v4) | 0,634 [0,578 ; 0,683] | 0,739 [0,700 ; 0,777] | 0,607 [0,550 ; 0,660] | ~0 $ (~5 s de CPU ; étiquettes : 0,73 $ une fois) | 0,95 ms un avis à la fois (moyenne) ; 0,045 ms par lot | 14 oct. 2026 |
 | Repère humain : Martin, passe 2 contre passe 1 (50 avis) | – | – | 0,70 [0,58 ; 0,82] | – | 18 s par avis | 14 oct. 2026 |
 
 - mistral-small v4, F1 par motif [IC 95 %] (support) : reception 0,886 [0,800 ; 0,951] (42), gout_texture 0,909
@@ -176,6 +177,22 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   repère humain mesuré sur 50 avis seulement, passe 2 rapide, kappas humains des motifs rares non interprétables.
 - Ce macro-F1 est la cible de la comparaison principale (meilleur modèle entraîné sur `labels_train_v4`, bootstrap
   apparié).
+- TF-IDF + régression logistique (mesure unique du 14 oct. 2026, `data/preds_test_tfidf.jsonl`, 0 invalide), F1 par
+  motif [IC 95 %] (support) : reception 0,786 [0,676 ; 0,872] (42), gout_texture 0,874 [0,834 ; 0,909] (171),
+  fraicheur_securite 0,652 [0,530 ; 0,759] (46), non_conforme 0,440 [0,261 ; 0,604] (24), prix 0,675
+  [0,550 ; 0,778] (39), autre 0,375 [0,219 ; 0,514] (32 ; 32 prédits, 12 justes). Kappa Martin / modèle : reception
+  0,75, gout_texture 0,70, fraicheur_securite 0,59, non_conforme 0,39, prix 0,62, autre 0,30. Prévision écrite avant
+  la mesure (0,55 à 0,68) tenue ; validation 0,651 contre le professeur, test 0,634 contre Martin.
+- Comparaison appariée TF-IDF − mistral-small v4 (bootstrap apparié, 2 000 tirages) : macro-F1 −0,137
+  [−0,200 ; −0,072], accord exact −0,157 [−0,213 ; −0,100]. Les intervalles excluent 0 : le LLM bat TF-IDF. Comparaison
+  provisoire : la comparaison principale portera sur le meilleur modèle entraîné, choisi sur la validation après
+  DistilBERT. L'élève garde 82 % du macro-F1 du professeur (0,634 / 0,770) et 88 % de son micro-F1.
+- Lecture : TF-IDF tient sur gout_texture (kappa 0,70, au niveau de Martin avec lui-même, 0,68) et sur reception ;
+  l'écart le plus grand porte sur fraicheur_securite (F1 −0,25 ; rappel 0,63 contre 0,89) : 17 plaintes manquées sur
+  46, dont 7 classées gout_texture et 5 autre ; le LLM en retrouve 12. Hypothèse (non vérifiée) : la règle « rance,
+  rassis, moisi -> fraicheur, prioritaire sur gout » et les effets sur la santé demandent de lire la phrase, alors que
+  « taste » pèse lourd pour gout_texture. Ordre de grandeur métier : sur 100 000 avis (15 % de fraicheur_securite),
+  l'écart de rappel représente ~4 000 plaintes de sécurité manquées en plus, à comparer aux 14,6 $ du LLM.
 
 ## Sortie du LLM
 - Schéma Pydantic `Etiquetage` : `evidence` (str), puis `motif_libre` (str, 3-6 mots), puis `motifs` (liste).

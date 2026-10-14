@@ -4,6 +4,7 @@ Données jouets, sauf le dernier test, qui vérifie le découpage réel contre C
 """
 import json
 import warnings
+from collections import Counter
 
 import numpy as np
 import pytest
@@ -16,8 +17,9 @@ from sklearn.pipeline import Pipeline
 
 from src.label_llm import POOL, check_rules
 from src.metrics import MOTIFS
-from src.tfidf_lr import (LABELS, MOTIFS_PLAINTE, build_pipeline, build_text, load_data, load_train_labels,
-                          plainte_matrix, run_final, split_train_val, to_motifs, top_words)
+from src.tfidf_lr import (LABELS, MOTIFS_PLAINTE, build_pipeline, build_text, confusions, contributions, load_data,
+                          load_train_labels, plainte_matrix, run_final, split_train_val, term_weights, to_motifs,
+                          top_words)
 
 TOY = [
     ("box arrived broken and melted", ["reception"]),
@@ -168,6 +170,41 @@ def test_top_words_refuse_autre():
     pipe = build_pipeline(C=1, ngram_range=(1, 1), min_df=1).fit(TEXTS, Y5)
     with pytest.raises(ValueError):
         top_words(pipe, "autre")
+
+
+# ---------- Expliquer les prédictions ----------
+
+def test_term_weights_poids_et_nombre_d_avis():
+    pipe = build_pipeline(C=10, ngram_range=(1, 1), min_df=1).fit(TEXTS, Y5)
+    tw = term_weights(pipe, ["melted", "Arrived", "zzzinconnu"], TEXTS)
+    assert list(tw.columns) == MOTIFS_PLAINTE + ["n_avis"]
+    assert tw.loc["melted", MOTIFS_PLAINTE].idxmax() == "reception"     # « melted » pousse surtout vers reception
+    assert tw.loc["Arrived", "n_avis"] == 3                               # majuscule ignorée ; 3 textes jouets
+    assert tw.loc["zzzinconnu"].isna().all()
+
+
+def test_contributions_redonnent_la_probabilite_du_modele():
+    pipe = build_pipeline(C=10, ngram_range=(1, 2), min_df=1).fit(TEXTS, Y5)
+    texte = "arrived melted, tastes awful and zzzinconnu"
+    contrib = contributions(pipe, texte)
+    P = pipe.predict_proba([texte])[0]
+    for j, m in enumerate(MOTIFS_PLAINTE):
+        d = contrib[m]
+        z = sum(c for _, c in d["termes"]) + d["intercept"]
+        assert 1 / (1 + np.exp(-z)) == pytest.approx(P[j])                 # sigmoïde(somme des votes + biais)
+        assert d["proba"] == pytest.approx(P[j])
+        cs = [c for _, c in d["termes"]]
+        assert cs == sorted(cs, reverse=True)
+    termes = [t for t, _ in contrib["reception"]["termes"]]
+    assert "melted" in termes and "zzzinconnu" not in termes
+
+
+def test_confusions_compte_manques_et_remplacements():
+    ref = [["fraicheur_securite"], ["fraicheur_securite", "gout_texture"], ["fraicheur_securite"], ["prix"], ["autre"]]
+    pred = [["gout_texture"], ["fraicheur_securite"], ["autre"], ["fraicheur_securite", "prix"], ["autre"]]
+    c = confusions(ref, pred, "fraicheur_securite")
+    assert (c["positifs"], c["trouves"], c["manques"], c["en_trop"]) == (3, 1, 2, 1)
+    assert c["a_la_place"] == Counter({("gout_texture",): 1, ("autre",): 1})
 
 
 # ---------- Garde-fous de la mesure finale ----------

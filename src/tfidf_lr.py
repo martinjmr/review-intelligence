@@ -3,6 +3,9 @@
 Usage :
   python -m src.tfidf_lr grid     # les 20 configurations : entraînement sur 3 983 avis, mesure sur les 996 de validation
   python -m src.tfidf_lr final    # UNE seule fois : la configuration choisie prédit les 300 avis de test
+  python -m src.tfidf_lr explique                            # poids de termes, confusions et exemples sur la validation
+  python -m src.tfidf_lr explique --texte "Tastes like moldy water"     # ce qui pousse chaque motif pour ce texte
+  python -m src.tfidf_lr explique --termes taste stale --motif autre    # autres termes, confusions d'un autre motif
 Produit : data/tfidf_lr_choix.json (grille et configuration choisie) ; data/preds_test_tfidf.jsonl (une ligne par
 avis de test, format lu par `python -m src.metrics eval`).
 Le test n'est lu que par `final`, qui refuse de tourner deux fois (cours 3, section 6 : le biais du gagnant).
@@ -11,6 +14,7 @@ import argparse
 import json
 import pickle
 import time
+from collections import Counter
 from datetime import date
 from pathlib import Path
 
@@ -113,6 +117,63 @@ def top_words(pipeline, motif, k=10):
     names = pipeline[0].get_feature_names_out()
     weights = pipeline[-1].estimators_[MOTIFS_PLAINTE.index(motif)].coef_[0]
     return [str(names[i]) for i in np.argsort(weights)[::-1][:k]]
+
+
+# ---------- Expliquer les prédictions (cours 3, section 7) ----------
+
+TERMES_FRAICHEUR = ["taste", "flavor", "stale", "old", "date", "expired", "sick", "rancid", "moldy", "bugs"]
+
+
+def term_weights(pipeline, terms, texts):
+    """Tableau des poids (DataFrame) : une ligne par terme, une colonne par motif de plainte, plus `n_avis`.
+
+    n_avis = nombre de textes de `texts` (ceux de l'entraînement du modèle) qui contiennent le terme. Un terme absent
+    du vocabulaire (vu dans moins de min_df avis) a des poids et un n_avis vides (NaN).
+    """
+    vec, clf = pipeline[0], pipeline[-1]
+    W = np.vstack([est.coef_[0] for est in clf.estimators_])        # (5 motifs, n_termes)
+    X = vec.transform(texts)
+    rows = []
+    for t in terms:
+        j = vec.vocabulary_.get(t.lower())                         # le vectoriseur met tout en minuscules
+        if j is None:
+            rows.append({**{m: np.nan for m in MOTIFS_PLAINTE}, "n_avis": np.nan})
+        else:
+            rows.append({**{m: W[k, j] for k, m in enumerate(MOTIFS_PLAINTE)}, "n_avis": int((X[:, j] > 0).sum())})
+    return pd.DataFrame(rows, index=list(terms))
+
+
+def contributions(pipeline, text):
+    """Décomposition des 5 probabilités d'un texte : {motif: {"proba", "intercept", "termes"}}.
+
+    termes : [(terme, contribution), ...] pour chaque terme du texte présent dans le vocabulaire, du plus favorable
+    au plus défavorable au motif ; contribution = poids du terme x sa valeur TF-IDF dans le texte.
+    Par construction, proba = sigmoïde(somme des contributions + intercept) (cours 3, section 4).
+    """
+    vec, clf = pipeline[0], pipeline[-1]
+    x = vec.transform([text])                                      # une ligne creuse : x.indices, x.data
+    names = vec.get_feature_names_out()
+    out = {}
+    for est, m in zip(clf.estimators_, MOTIFS_PLAINTE):
+        w, b = est.coef_[0], float(est.intercept_[0])
+        termes = sorted(((str(names[j]), float(v * w[j])) for j, v in zip(x.indices, x.data)),
+                        key=lambda tc: -tc[1])
+        z = sum(c for _, c in termes) + b
+        out[m] = {"proba": float(1 / (1 + np.exp(-z))), "intercept": b, "termes": termes}
+    return out
+
+
+def confusions(ref, pred, motif):
+    """Pour un motif, deux listes alignées de listes de motifs (référence, prédictions) ->
+    {"positifs", "trouves", "manques", "en_trop", "a_la_place"}.
+
+    a_la_place (Counter) compte ce que le modèle a prédit sur les avis manqués. Vaut pour n'importe quel modèle.
+    """
+    pos = [p for r, p in zip(ref, pred) if motif in r]
+    manques = [tuple(p) for p in pos if motif not in p]
+    return {"positifs": len(pos), "trouves": len(pos) - len(manques), "manques": len(manques),
+            "en_trop": sum(motif in p and motif not in r for r, p in zip(ref, pred)),
+            "a_la_place": Counter(manques)}
 
 
 # ---------- Données, grille, mesure finale ----------
@@ -228,14 +289,84 @@ def run_final(pool_path=POOL, labels_path=LABELS, choix=CHOIX, out=PREDS_TEST, r
     print(f"Comparaison appariée avec le LLM : python -m src.metrics eval data/labels_test_v4.jsonl --contre {out}")
 
 
+def load_config(choix=CHOIX):
+    """Configuration choisie par `grid`, prête pour build_pipeline."""
+    if not choix.exists():
+        raise SystemExit("Lance d'abord `python -m src.tfidf_lr grid`.")
+    cfg = json.loads(choix.read_text(encoding="utf-8"))["config"]
+    cfg["ngram_range"] = tuple(cfg["ngram_range"])          # JSON ne connaît que les listes
+    return cfg
+
+
+def print_contributions(contrib, k=3):
+    for m, d in contrib.items():
+        pour = ", ".join(f"{t} {c:+.2f}" for t, c in d["termes"][:k] if c > 0) or "-"
+        contre = ", ".join(f"{t} {c:+.2f}" for t, c in d["termes"][::-1][:k] if c < 0) or "-"
+        print(f"    {m:20s} p = {d['proba']:.2f}   pour : {pour}   |   contre : {contre}")
+
+
+def run_explique(terms=TERMES_FRAICHEUR, texte=None, motif="fraicheur_securite", n_exemples=3, choix=CHOIX):
+    """Ne lit jamais le test. Deux modèles, même configuration :
+    - le modèle livré (entraînement + validation si REFIT) : poids des termes et contributions d'un texte libre ;
+    - le modèle entraîné sur l'entraînement seul : confusions et exemples sur la validation, qu'il n'a pas vue.
+    """
+    cfg = load_config(choix)
+    train, val = load_data()
+    livre_df = pd.concat([train, val]) if REFIT else train
+    livre = build_pipeline(**cfg).fit(build_text(livre_df), plainte_matrix(livre_df["motifs"]))
+    if texte is not None:
+        print(f"Modèle livré ({cfg}, {len(livre_df)} avis). Contributions (poids x TF-IDF) pour {texte!r} :")
+        if any(texte.lower() in x.lower() for x in build_text(livre_df)):
+            print("  Attention : ce texte figure dans les avis d'entraînement du modèle livré. Sa prédiction mesure "
+                  "ce dont le modèle se souvient, pas ce qu'il sait généraliser.")
+        print_contributions(contributions(livre, texte))
+        return
+
+    print(f"1. Poids des termes, modèle livré ({cfg}, {len(livre_df)} avis)")
+    print(f"   {'terme':16s} " + " ".join(f"{m[:10]:>10s}" for m in MOTIFS_PLAINTE) + f" {'n_avis':>7s}")
+    for t, row in term_weights(livre, terms, build_text(livre_df)).iterrows():
+        if np.isnan(row["n_avis"]):
+            print(f"   {t:16s} absent du vocabulaire (vu dans moins de {cfg['min_df']} avis)")
+        else:
+            print(f"   {t:16s} " + " ".join(f"{row[m]:>+10.2f}" for m in MOTIFS_PLAINTE) + f" {int(row['n_avis']):>7d}")
+
+    modele = build_pipeline(**cfg).fit(build_text(train), plainte_matrix(train["motifs"]))
+    X_val = build_text(val)
+    P = modele.predict_proba(X_val)
+    pred = to_motifs(P)
+    ref = list(val["motifs"])
+    c = confusions(ref, pred, motif)
+    print(f"\n2. Confusions sur la validation ({len(val)} avis, étiquettes du professeur), modèle entraîné sur "
+          f"{len(train)} avis : {motif}")
+    print(f"   {c['positifs']} positifs, {c['trouves']} trouvés, {c['manques']} manqués, {c['en_trop']} en trop")
+    print("   prédit à la place sur les manqués : "
+          + (", ".join(f"{'+'.join(k)} {v}" for k, v in c["a_la_place"].most_common()) or "-"))
+    manques = [i for i, (r, p) in enumerate(zip(ref, pred)) if motif in r and motif not in p]
+    if manques and motif in MOTIFS_PLAINTE:
+        print(f"   probabilité de {motif} sur les manqués : médiane "
+              f"{np.median(P[manques, MOTIFS_PLAINTE.index(motif)]):.2f} (seuil {THRESHOLD})")
+
+    print(f"\n3. Exemples de manqués sur la validation ({min(n_exemples, len(manques))} sur {len(manques)})")
+    for i in manques[:n_exemples]:
+        print(f"\n   {X_val[i][:150]!r}")
+        print(f"   professeur : {ref[i]} ; modèle : {pred[i]}")
+        print_contributions(contributions(modele, X_val[i]))
+
+
 def main():
     parser = argparse.ArgumentParser(description="TF-IDF + régression logistique (cours 3)")
-    parser.add_argument("cmd", choices=["grid", "final"])
+    parser.add_argument("cmd", choices=["grid", "final", "explique"])
+    parser.add_argument("--texte", default=None, help="explique : contributions des termes pour ce texte")
+    parser.add_argument("--termes", nargs="+", default=TERMES_FRAICHEUR, help="explique : termes du tableau des poids")
+    parser.add_argument("--motif", default="fraicheur_securite", choices=MOTIFS, help="explique : motif des confusions")
+    parser.add_argument("--exemples", type=int, default=3, help="explique : nombre d'avis manqués affichés")
     args = parser.parse_args()
     if args.cmd == "grid":
         run_grid(*load_data())
-    else:
+    elif args.cmd == "final":
         run_final()
+    else:
+        run_explique(args.termes, args.texte, args.motif, args.exemples)
 
 
 if __name__ == "__main__":
