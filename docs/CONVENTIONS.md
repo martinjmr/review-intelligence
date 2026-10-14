@@ -52,6 +52,8 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   Plafond de mesure (cours 2, section 5) : 2e(1 − e) = 0,30 donne e ≈ 0,18 ; environ 18 % des avis de la référence
   portent une étiquette instable, et même un modèle parfait n'aurait qu'environ 82 % d'accord exact avec la passe 1
   (hypothèse d'erreurs indépendantes, optimiste).
+- Passe 3 faite le 14 oct. 2026 (15 désaccords arbitrés, commit `4499ae7`), avant l'étiquetage du test par le LLM.
+  Référence finale : passe 3 sur ces 15 avis, passe 1 sur les 285 autres. Guide inchangé (v1).
 - Métrique principale (13 oct. 2026, avant tout résultat sur le test) : macro-F1 sur les 6 motifs, avec IC 95 % par bootstrap
   percentile (2 000 tirages d'avis, graine 42). À côté : P / R / F1 / support par motif, micro-F1, accord exact, kappa
   référence / modèle par motif. Réponses manquantes ou invalides d'un modèle = liste vide (comptées comme erreurs) ;
@@ -117,6 +119,25 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   venait du bruit d'échantillonnage sur 200 avis (écart-type d'une part : √(p(1−p)/200), ±5 points à 95 % pour 15 %).
   Limite connue : dans les motif_libre des avis « autre », quelques vraies plaintes avalées par l'étape 4 (« difficile
   à ouvrir », « goût non apprécié ») ; estimation grossière ~1 % du train.
+
+## Résultats sur le test (300 avis, référence finale de Martin)
+| Modèle | macro-F1 [IC 95 %] | micro-F1 [IC 95 %] | Accord exact [IC 95 %] | Coût / 100 000 avis | Latence médiane / p95 | Date |
+| --- | --- | --- | --- | --- | --- | --- |
+| `mistral-small-2603` + prompt v4 | 0,770 [0,716 ; 0,816] | 0,843 [0,809 ; 0,876] | 0,763 [0,717 ; 0,810] | 14,6 $ | 0,76 s / 1,19 s | 14 oct. 2026 |
+| Repère humain : Martin, passe 2 contre passe 1 (50 avis) | – | – | 0,70 [0,58 ; 0,82] | – | 18 s par avis | 14 oct. 2026 |
+
+- mistral-small v4, F1 par motif [IC 95 %] (support) : reception 0,886 [0,800 ; 0,951] (42), gout_texture 0,909
+  [0,876 ; 0,940] (171), fraicheur_securite 0,901 [0,829 ; 0,961] (46), prix 0,800 [0,696 ; 0,889] (39),
+  non_conforme 0,560 [0,372 ; 0,702] (24 ; 14 vrais positifs, 12 faux positifs, 10 manqués), autre 0,566
+  [0,390 ; 0,710] (32 ; 15 trouvés, 17 manqués, 6 en trop). Kappa Martin / modèle : reception 0,87, gout_texture 0,78,
+  fraicheur_securite 0,88, non_conforme 0,52, prix 0,77, autre 0,53. 1 invalide (compté comme liste vide), 0,0436 $.
+- Lecture : sur 4 motifs sur 6, le LLM s'accorde avec la référence au moins autant que Martin avec lui-même
+  (gout_texture, seul kappa humain interprétable : 0,78 contre 0,68). Ses deux points faibles sont les deux frontières
+  que le guide a dû trancher (« annoncé par défaut » pour non_conforme, « plainte vague » pour autre) et les deux motifs
+  les plus rares ; le macro-F1 (0,77) les pèse autant que les autres, d'où l'écart avec le micro-F1 (0,84). Réserves :
+  repère humain mesuré sur 50 avis seulement, passe 2 rapide, kappas humains des motifs rares non interprétables.
+- Ce macro-F1 est la cible de la comparaison principale (meilleur modèle entraîné sur `labels_train_v4`, bootstrap
+  apparié).
 
 ## Sortie du LLM
 - Schéma Pydantic `Etiquetage` : `evidence` (str), puis `motif_libre` (str, 3-6 mots), puis `motifs` (liste).
