@@ -134,11 +134,29 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   réglages ensuite.
 - Les étiquettes de validation sont celles de mistral-small v4 : un score de validation mesure l'accord avec ce
   professeur, pas avec la référence de Martin.
-- Pas de ré-entraînement sur entraînement + validation après le choix (décision du 14 oct. 2026 ; raisons : seuils
-  réglés sur la validation, même traitement que DistilBERT). Faits mesurés ensuite (cours 3, section 6) : la courbe
-  d'apprentissage monte encore (macro-F1 de validation 0,542 avec 1 000 avis, 0,606 avec 2 000, 0,636 avec 3 000,
-  0,660 avec 3 983) et, avec `class_weight="balanced"`, régler les seuils n'apporte rien (0,651 contre 0,650). Point
-  rouvert, à trancher avant la mesure sur le test.
+- Ré-entraînement après le choix (décision B du 14 oct. 2026, prise avant toute mesure d'un modèle entraîné sur le
+  test ; elle remplace la décision du même jour « pas de ré-entraînement ») : la configuration choisie sur la validation
+  est ré-entraînée sur entraînement + validation (4 979 avis), et c'est ce modèle qui est mesuré une fois sur le test.
+  Même règle pour DistilBERT : ré-entraînement sur les 4 979 avis avec le nombre d'époques choisi sur la validation.
+  Le choix entre TF-IDF et DistilBERT se fait sur la validation, les deux entraînés sur les 3 983 mêmes avis.
+  Raisons : le test mesure le modèle qu'on livrerait ; la courbe d'apprentissage monte encore (macro-F1 de validation
+  0,542 avec 1 000 avis, 0,606 avec 2 000, 0,636 avec 3 000, 0,660 avec 3 983 ; gain attendu de +0,015 à +0,02,
+  extrapolation peu sûre) ; l'argument contraire est tombé, car avec `class_weight="balanced"` régler les seuils
+  n'apporte rien (0,651 contre 0,650) et le seuil reste fixé à 0,5 ; c'est la pratique par défaut de `GridSearchCV`
+  (`refit=True`). Limite : le modèle mesuré sur le test n'a jamais été mesuré sur la validation (risque faible pour une
+  régression logistique aux réglages fixés). Dans le code : `REFIT = True` dans `src/tfidf_lr.py`.
+- TF-IDF + régression logistique, grille fixée avant toute mesure (`src/tfidf_lr.py`) : C ∈ {0,1 ; 0,3 ; 1 ; 3 ; 10}
+  × n-grammes {(1, 1), (1, 2)} × `min_df` {1, 3} ; fixes : `class_weight="balanced"`, `sublinear_tf=True`, mots vides
+  gardés, seuil 0,5, 5 classifieurs (un par motif de plainte) et règle de sortie « autre si et seulement si aucun motif
+  de plainte n'est retenu ». Critère de choix : macro-F1 de validation sur les 6 motifs, après la règle.
+- Résultat de la grille (14 oct. 2026, validation de 996 avis, étiquettes du professeur) : configuration choisie C = 3,
+  mots + paires, `min_df` = 3 (13 831 termes) ; macro-F1 0,651 (IC 95 % par bootstrap [0,620 ; 0,679]), accord exact
+  0,623, entraînement 0,950 ; 0 sortie invalide sur les 20 configurations. F1 par motif : reception 0,689,
+  gout_texture 0,845, fraicheur_securite 0,730, non_conforme 0,525, prix 0,687, autre 0,429 (précision 0,36, rappel
+  0,54 : autre sert de fourre-tout quand les 5 classifieurs hésitent). Plateau : 5 configurations entre 0,643 et 0,651,
+  écarts probablement dus au bruit ; 0,651 est le maximum de 20 mesures, donc légèrement optimiste. Entraînement 0,5 s,
+  prédiction par lot 0,04 ms par avis, modèle 0,9 Mo. Prévision écrite avant la mesure sur le test (cours 3,
+  section 2) : macro-F1 entre 0,55 et 0,68.
 
 ## Résultats sur le test (300 avis, référence finale de Martin)
 | Modèle | macro-F1 [IC 95 %] | micro-F1 [IC 95 %] | Accord exact [IC 95 %] | Coût / 100 000 avis | Latence médiane / p95 | Date |

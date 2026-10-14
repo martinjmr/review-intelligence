@@ -33,7 +33,7 @@ THRESHOLD = 0.5           # fixe : class_weight="balanced" fait déjà le travai
 MOTIFS_PLAINTE = [m for m in MOTIFS if m != "autre"]   # 5 classifieurs ; autre se déduit (cours 3, section 5)
 GRID = [{"C": C, "ngram_range": ng, "min_df": md}      # fixée avant toute mesure : 20 configurations
         for C in (0.1, 0.3, 1, 3, 10) for ng in ((1, 1), (1, 2)) for md in (1, 3)]
-REFIT = None   # à trancher avant `final` (cours 3, section 6) : False = 3 983 avis, True = 4 979 avis
+REFIT = True   # décision B du 14 oct. 2026 (CONVENTIONS.md) : ré-entraîné sur 4 979 avis avant le test
 
 
 def load_train_labels(path=LABELS):
