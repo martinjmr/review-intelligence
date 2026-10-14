@@ -99,19 +99,29 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   annoter la référence du test. Limites connues, à reporter dans le livrable : critères 1 et 3 ratés, non_conforme
   peut-être sous-étiqueté, empilement de motifs. Contrôle facultatif : Martin annote les 29 avis divergents (document
   « Explo : 29 avis divergents v2 / v4 et prompt v4 ») ; on mesure alors l'accord entre les deux annotateurs.
+- Train étiqueté avec v4 (13-14 oct. 2026, `data/labels_train_v4.jsonl`) : 5 000 / 5 000, 0 erreur ; invalides 0,4 %
+  (21 avis, tous `autre_combine`) ; attempts = 1 pour 4 999 avis, 5 pour 1 ; latence médiane 0,67 s, p95 1,3 s ;
+  790,6 tokens d'entrée, 45,6 de sortie ; coût 0,7296 $ (14,59 $ pour 100 000 avis). Parts : gout_texture 59 %,
+  fraicheur_securite 15,5 %, prix 14,5 %, reception 11,4 %, non_conforme 8,7 %, autre 8,3 %. Plus proches de la
+  référence de Martin sur le test que celles d'explo : la crainte d'un non_conforme sous-étiqueté (4,5 % sur explo)
+  venait du bruit d'échantillonnage sur 200 avis (écart-type d'une part : √(p(1−p)/200), ±5 points à 95 % pour 15 %).
+  Limite connue : dans les motif_libre des avis « autre », quelques vraies plaintes avalées par l'étape 4 (« difficile
+  à ouvrir », « goût non apprécié ») ; estimation grossière ~1 % du train.
 
 ## Sortie du LLM
 - Schéma Pydantic `Etiquetage` : `evidence` (str), puis `motif_libre` (str, 3-6 mots), puis `motifs` (liste).
   L'ordre compte : la justification est générée avant l'étiquette.
 - Règles vérifiées après coup (`check_rules`) : liste non vide, « autre » seul, pas de doublon. Invalides < 2 %.
 - Appels : temperature=0, random_seed=42, max_tokens=200. Prompts versionnés dans `prompts/vN.txt`.
+  Modèle figé depuis le 13 oct. 2026 : `mistral-small-2603` (avant : l'alias `mistral-small-latest`).
 - Erreurs : 401 -> arrêt ; 429 / 5xx / réseau -> backoff 1, 2, 4, 8 s, 5 essais max.
 - Sauvegarde : une ligne JSONL par avis, écrite immédiatement ; reprise en sautant les review_id déjà étiquetés
   avec succès. Les lignes `{"review_id", "error"}` ne comptent pas comme faites : relancer le script refait ces avis
   (décision du 11 oct. 2026, option B). Le fichier peut donc contenir une ligne `error` puis une ligne réussie
   pour le même avis ; `report.py` ignore les lignes `error`.
   Champs : review_id, prompt_version, model, evidence, motif_libre, motifs, problems,
-  prompt_tokens, completion_tokens, latency_s.
+  prompt_tokens, completion_tokens, latency_s, attempts (depuis le 13 oct. 2026 ; `model` = `rep.model`, le nom
+  annoncé par l'API, qui peut n'être que l'écho du nom demandé).
 - Réponse vide (`parsed` à None) : evidence et motif_libre à None, motifs à [] -> `problems = ["liste_vide"]`
   (compté comme invalide, pas refait).
 
@@ -130,5 +140,8 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
 - Prompt v2 (1 121 caractères contre 795) : 335 tokens en entrée, 43 en sortie ; latence médiane 0,87 s, p95 1,7 s ;
   0,015 $ pour 200 avis, soit ~7,6 $ pour 100 000 avis avec les prix ci-dessous (prix encore à vérifier dans la console).
 - Hypothèse initiale : ~600 tokens de prompt système + ~80 d'avis en entrée, ~50 en sortie.
-- Mistral Small 4 : 0,15 $ / 0,60 $ par million de tokens (source tierce, 6 oct. 2026).
+- Mistral Small 4 : 0,15 $ / 0,60 $ par million de tokens (source tierce, 6 oct. 2026 ; mêmes chiffres sur la page
+  du modèle de docs.mistral.ai le 13 oct. 2026, qui ne précise pas lequel est l'entrée ; console pas encore vérifiée).
+- Mesuré le 14 oct. 2026 (prompt v4, `mistral-small-2603`, 5 000 avis de train) : 790,6 tokens d'entrée, 45,6 de sortie,
+  0,7296 $, soit 14,59 $ pour 100 000 avis ; ~4 h d'appels (pause 2,2 s + latence médiane 0,67 s par avis).
 - 200 avis ~0,03 $ ; 5 000 avis ~0,66 $ ; 100 000 avis ~13 $.
