@@ -52,7 +52,7 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   Plafond de mesure (cours 2, section 5) : 2e(1 − e) = 0,30 donne e ≈ 0,18 ; environ 18 % des avis de la référence
   portent une étiquette instable, et même un modèle parfait n'aurait qu'environ 82 % d'accord exact avec la passe 1
   (hypothèse d'erreurs indépendantes, optimiste).
-- Passe 3 faite le 14 oct. 2026 (15 désaccords arbitrés, commit `4499ae7`), avant l'étiquetage du test par le LLM.
+- Passe 3 faite le 14 oct. 2026 (15 désaccords arbitrés, commit `ccb2d66`), avant l'étiquetage du test par le LLM.
   Référence finale : passe 3 sur ces 15 avis, passe 1 sur les 285 autres. Guide inchangé (v1).
 - Métrique principale (13 oct. 2026, avant tout résultat sur le test) : macro-F1 sur les 6 motifs, avec IC 95 % par bootstrap
   percentile (2 000 tirages d'avis, graine 42). À côté : P / R / F1 / support par motif, micro-F1, accord exact, kappa
