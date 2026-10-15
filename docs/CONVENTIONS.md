@@ -195,7 +195,7 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
 ## Résultats sur le test (300 avis, référence finale de Martin)
 | Modèle | macro-F1 [IC 95 %] | micro-F1 [IC 95 %] | Accord exact [IC 95 %] | Coût / 100 000 avis | Latence médiane / p95 | Date |
 | --- | --- | --- | --- | --- | --- | --- |
-| `mistral-small-2603` + prompt v4 | 0,770 [0,716 ; 0,816] | 0,843 [0,809 ; 0,876] | 0,763 [0,717 ; 0,810] | 14,6 $ | 0,76 s / 1,19 s | 14 oct. 2026 |
+| `mistral-small-2603` + prompt v4 | 0,770 [0,716 ; 0,816] | 0,843 [0,809 ; 0,876] | 0,763 [0,717 ; 0,810] | ~4,6 € (~5,3 $), facture réelle avec cache automatique (14,6 $ au prix catalogue sans cache) | 0,76 s / 1,19 s | 14 oct. 2026 |
 | TF-IDF + régression logistique (C = 3, mots + paires, `min_df` = 3, 4 979 avis étiquetés par v4) | 0,634 [0,578 ; 0,683] | 0,739 [0,700 ; 0,777] | 0,607 [0,550 ; 0,660] | ~0 $ (~5 s de CPU ; étiquettes : 0,73 $ une fois) | 0,95 ms un avis à la fois (moyenne) ; 0,045 ms par lot | 14 oct. 2026 |
 | DistilBERT (`distilbert-base-uncased`, 5e-5, 6 époques, graine 42, 4 979 avis étiquetés par v4) | 0,712 [0,657 ; 0,758] | 0,788 [0,749 ; 0,823] | 0,683 [0,633 ; 0,733] | ~0 $ par avis (entraînement : 3,2 min de GPU T4, Colab gratuit ; étiquettes : 0,73 $ une fois) | GPU T4 : 7,6 ms un avis à la fois (moyenne de 100) ; 0,79 ms par lot ; CPU non mesuré | 15 oct. 2026 |
 | Repère humain : Martin, passe 2 contre passe 1 (50 avis) | – | – | 0,70 [0,58 ; 0,82] | – | 18 s par avis | 14 oct. 2026 |
@@ -227,7 +227,8 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   46, dont 7 classées gout_texture et 5 autre ; le LLM en retrouve 12. Hypothèse (non vérifiée) : la règle « rance,
   rassis, moisi -> fraicheur, prioritaire sur gout » et les effets sur la santé demandent de lire la phrase, alors que
   « taste » pèse lourd pour gout_texture. Ordre de grandeur métier : sur 100 000 avis (15 % de fraicheur_securite),
-  l'écart de rappel représente ~4 000 plaintes de sécurité manquées en plus, à comparer aux 14,6 $ du LLM.
+  l'écart de rappel représente ~4 000 plaintes de sécurité manquées en plus, à comparer au coût du LLM (~4,6 € pour
+  100 000 avis, facture réelle ; 14,6 $ au prix catalogue sans cache).
 - DistilBERT (mesure unique du 15 oct. 2026, `data/preds_test_distilbert.jsonl`, 0 invalide), F1 par motif
   [IC 95 %] (support) : reception 0,810 [0,712 ; 0,894] (42), gout_texture 0,877 [0,839 ; 0,911] (171),
   fraicheur_securite 0,736 [0,622 ; 0,833] (46 ; précision 0,78, rappel 0,70 : 32 trouvées, 14 manquées), non_conforme
@@ -242,7 +243,7 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   reporter dans le livrable : l'estimation ponctuelle favorise le LLM de 0,058 et l'intervalle admet jusqu'à −0,115
   (300 avis ne suffisent pas à trancher un écart de cette taille) ; l'accord exact, métrique secondaire, montre le LLM
   meilleur (intervalle excluant 0) ; sur fraicheur_securite, rappel 0,70 contre 0,89, soit ~3 000 plaintes de sécurité
-  manquées en plus pour 100 000 avis (15 % de ce motif), à comparer aux 14,6 $ du LLM. Recommandation finale à rédiger
+  manquées en plus pour 100 000 avis (15 % de ce motif), à comparer aux ~4,6 € du LLM. Recommandation finale à rédiger
   dans le livrable, pas tranchée ici.
 
 ## Sortie du LLM
@@ -282,3 +283,22 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
 - Mesuré le 14 oct. 2026 (prompt v4, `mistral-small-2603`, 5 000 avis de train) : 790,6 tokens d'entrée, 45,6 de sortie,
   0,7296 $, soit 14,59 $ pour 100 000 avis ; ~4 h d'appels (pause 2,2 s + latence médiane 0,67 s par avis).
 - 200 avis ~0,03 $ ; 5 000 avis ~0,66 $ ; 100 000 avis ~13 $.
+- Prix vérifiés le 15 oct. 2026 sur la page publique des prix (docs.mistral.ai, section Pricing), en $ par million de
+  tokens : Mistral Small 4 entrée 0,15, entrée en cache 0,015, sortie 0,60 ; Ministral 3 8B entrée 0,15, entrée en
+  cache 0,015, sortie 0,15. Les 14,59 $ pour 100 000 avis mesurés le 14 oct. sont cohérents avec ces prix
+  (790,6 x 0,15 + 45,6 x 0,60 = 146 $ par million d'avis), mais seulement en l'absence de cache.
+- **Facture réelle (console, 15 oct. 2026)** : 6,1 k requêtes (= les 6 100 appels du mois), 0,27 € sur le forfait API
+  d'octobre (8,5 €). Prix du compte en € par million de tokens : entrée 0,13, entrée en cache ~0,013 (affiché 0,01),
+  sortie 0,51. Détail `mistral-small-2603` (explo v3 et v4, test, train : 5 700 appels) : entrée 596,88 k, **en cache
+  3,9 M**, sortie 259,74 k, soit 0,26 € ; `mistral-small-latest` (explo v1 et v2) : entrée 42,8 k, en cache 77,58 k,
+  sortie 17,97 k. Totaux identiques aux tokens enregistrés par `label_llm.py` (entrée 4,62 M, sortie 277 708). **Le cache
+  du prompt s'est appliqué automatiquement**, sans `prompt_cache_key` : 86,7 % des tokens d'entrée de
+  `mistral-small-2603` servis depuis le cache (le prompt système v4, identique à chaque appel).
+- **Coût réel pour 100 000 avis avec le prompt v4 : ~4,6 € (~5,3 $)** (0,26 € / 5 700 appels ; même résultat avec les
+  prix en $ et la part en cache mesurée), contre 14,6 $ calculés sans cache. La sortie (`evidence`, `motif_libre`,
+  `motifs` : ~46 tokens) fait désormais 51 % de la facture. Avec la même part en cache, Ministral 3 8B coûterait
+  ~3,3 $ pour 100 000 avis (estimation, sortie 4 fois moins chère). Leviers non essayés : traitement par lots, annoncé
+  à −50 % (mistral.ai, page Pricing) ; sortie plus courte (sans `evidence`), au risque de perdre en qualité.
+- Cache du prompt (documentation Mistral, page Prompt caching) : blocs de 64 tokens, tokens en cache facturés 10 % du
+  prix d'entrée ; la documentation le présente comme activé par `prompt_cache_key`, mais la facture montre qu'il
+  s'applique aussi sans ce paramètre quand le début du prompt est identique d'un appel à l'autre.
