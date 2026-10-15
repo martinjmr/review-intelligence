@@ -6,3 +6,5 @@ pydantic>=2.0
 python-dotenv>=1.0
 pytest>=8.0
 scikit-learn>=1.5
+matplotlib>=3.8          # slide de synthèse (livrable/slide.py)
+# DistilBERT (src/distilbert.py) tourne sur Colab, où torch et transformers sont déjà installés.
