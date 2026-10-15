@@ -157,6 +157,40 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   écarts probablement dus au bruit ; 0,651 est le maximum de 20 mesures, donc légèrement optimiste. Entraînement 0,5 s,
   prédiction par lot 0,04 ms par avis, modèle 0,9 Mo. Prévision écrite avant la mesure sur le test (cours 3,
   section 2) : macro-F1 entre 0,55 et 0,68.
+- DistilBERT (`src/distilbert.py`, entraînement sur Colab, GPU Tesla T4 ; cours 4). Réglages fixés avant la grille :
+  `distilbert-base-uncased` (66,96 M de paramètres, dont 0,59 M pour la tête neuve), même texte que TF-IDF (titre +
+  texte), 512 tokens au plus (mesuré sur l'entraînement : médiane 47, 1,9 % au-delà de 256, 0,2 % au-delà de 512),
+  remplissage dynamique, lots de 16, 5 sorties (une par motif de plainte), entropie croisée binaire pondérée par
+  n_négatifs / n_positifs (même rapport que `class_weight="balanced"`), AdamW (décroissance des poids 0,01, sauf biais
+  et LayerNorm), montée linéaire du taux sur 10 % des pas puis descente jusqu'à 0, gradients bornés à 1,
+  demi-précision, même règle de sortie que TF-IDF (seuil 0,5, autre si aucun motif). Mesure sur la validation à la fin
+  de chaque époque.
+- Grille : (taux 2e-5, 4 époques) et (5e-5, 4 époques) x graines 42, 43, 44 (14 oct. 2026), puis (5e-5, 6 époques) x
+  les 3 mêmes graines, ajouté le 15 oct. 2026 parce que le meilleur réglage du 14 était au bord de la grille (taux le
+  plus haut, dernière époque) ; ajout décidé sur la validation, avant tout contact avec le test. Un entraînement est
+  identifié par (taux, calendrier, graine) : l'époque 4 d'un calendrier de 6 (taux encore à 37 %) n'est pas l'époque 4
+  d'un calendrier de 4. Règle de choix, fixée avant les résultats : meilleure moyenne des 3 graines sur les triplets
+  (taux, calendrier, époque d'arrêt) ; à égalité, le plus petit taux, puis le calendrier le plus court, puis le moins
+  d'époques.
+- Résultats de la grille (macro-F1 de validation, moyenne [min ; max] des graines) : 2e-5 / 4 époques 0,630 à
+  l'époque 4 (sous-apprentissage) ; 5e-5 / 4 époques 0,707 [0,702 ; 0,714] ; 5e-5 / 6 époques 0,696 à l'époque 4,
+  0,7200 [0,704 ; 0,732] à l'époque 5, 0,7203 [0,711 ; 0,727] à l'époque 6. Choix : taux 5e-5, calendrier de
+  6 époques, arrêt à l'époque 6, macro-F1 0,720 (écart-type 0,0083). Gain de l'extension +0,013 (~2 erreurs types) ;
+  époques 5 et 6 à égalité de fait (plateau, pas de nouvelle extension). Maximum de 14 triplets : légèrement flatteur.
+  ~26 s par époque sur T4 ; 0 sortie invalide.
+- Comparaison TF-IDF / DistilBERT sur la validation (bootstrap apparié, mêmes 3 983 avis d'entraînement, mêmes 996
+  avis de validation, étiquettes du professeur), écart DistilBERT − TF-IDF en macro-F1 : graine 42 +0,060
+  [+0,029 ; +0,092], graine 43 +0,072 [+0,042 ; +0,103], graine 44 +0,076 [+0,047 ; +0,107] ; accord exact +0,051 à
+  +0,075, intervalles excluant 0. **Décision (15 oct. 2026) : DistilBERT est le meilleur modèle entraîné** ; la
+  comparaison principale portera sur DistilBERT contre mistral-small v4. F1 par motif (graine 42 contre TF-IDF) :
+  reception 0,743 / 0,689, gout_texture 0,869 / 0,845, fraicheur_securite 0,775 / 0,730, non_conforme 0,563 / 0,525,
+  prix 0,791 / 0,687, autre 0,526 / 0,429. fraicheur_securite : 23 plaintes manquées sur 159 au lieu de 44 (rappel
+  0,86 contre 0,72), 56 en trop au lieu de 41 ; plus aucune manquée classée autre (10 pour TF-IDF), 14 encore classées
+  gout_texture.
+- Mesure finale (`final`, une fois) : le réglage choisi est ré-entraîné sur les 4 979 avis (décision B), graine 42
+  fixée d'avance (la moins bonne des trois en validation, 0,711 : pas de choix de graine), même calendrier et même
+  époque d'arrêt que dans la grille, puis prédit les 300 avis de test. Prévision écrite avant la mesure (cours 4,
+  section 10) : macro-F1 sur le test entre 0,66 et 0,74. Dans le code : `GRILLE_VALIDEE = True`.
 
 ## Résultats sur le test (300 avis, référence finale de Martin)
 | Modèle | macro-F1 [IC 95 %] | micro-F1 [IC 95 %] | Accord exact [IC 95 %] | Coût / 100 000 avis | Latence médiane / p95 | Date |
