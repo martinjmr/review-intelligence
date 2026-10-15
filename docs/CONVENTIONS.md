@@ -197,6 +197,7 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
 | --- | --- | --- | --- | --- | --- | --- |
 | `mistral-small-2603` + prompt v4 | 0,770 [0,716 ; 0,816] | 0,843 [0,809 ; 0,876] | 0,763 [0,717 ; 0,810] | 14,6 $ | 0,76 s / 1,19 s | 14 oct. 2026 |
 | TF-IDF + régression logistique (C = 3, mots + paires, `min_df` = 3, 4 979 avis étiquetés par v4) | 0,634 [0,578 ; 0,683] | 0,739 [0,700 ; 0,777] | 0,607 [0,550 ; 0,660] | ~0 $ (~5 s de CPU ; étiquettes : 0,73 $ une fois) | 0,95 ms un avis à la fois (moyenne) ; 0,045 ms par lot | 14 oct. 2026 |
+| DistilBERT (`distilbert-base-uncased`, 5e-5, 6 époques, graine 42, 4 979 avis étiquetés par v4) | 0,712 [0,657 ; 0,758] | 0,788 [0,749 ; 0,823] | 0,683 [0,633 ; 0,733] | ~0 $ par avis (entraînement : 3,2 min de GPU T4, Colab gratuit ; étiquettes : 0,73 $ une fois) | GPU T4 : 7,6 ms un avis à la fois (moyenne de 100) ; 0,79 ms par lot ; CPU non mesuré | 15 oct. 2026 |
 | Repère humain : Martin, passe 2 contre passe 1 (50 avis) | – | – | 0,70 [0,58 ; 0,82] | – | 18 s par avis | 14 oct. 2026 |
 
 - mistral-small v4, F1 par motif [IC 95 %] (support) : reception 0,886 [0,800 ; 0,951] (42), gout_texture 0,909
@@ -227,6 +228,22 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   rassis, moisi -> fraicheur, prioritaire sur gout » et les effets sur la santé demandent de lire la phrase, alors que
   « taste » pèse lourd pour gout_texture. Ordre de grandeur métier : sur 100 000 avis (15 % de fraicheur_securite),
   l'écart de rappel représente ~4 000 plaintes de sécurité manquées en plus, à comparer aux 14,6 $ du LLM.
+- DistilBERT (mesure unique du 15 oct. 2026, `data/preds_test_distilbert.jsonl`, 0 invalide), F1 par motif
+  [IC 95 %] (support) : reception 0,810 [0,712 ; 0,894] (42), gout_texture 0,877 [0,839 ; 0,911] (171),
+  fraicheur_securite 0,736 [0,622 ; 0,833] (46 ; précision 0,78, rappel 0,70 : 32 trouvées, 14 manquées), non_conforme
+  0,528 [0,350 ; 0,677] (24), prix 0,771 [0,658 ; 0,861] (39), autre 0,552 [0,383 ; 0,696] (32). Kappa Martin /
+  modèle : reception 0,78, gout_texture 0,71, fraicheur_securite 0,69, non_conforme 0,48, prix 0,73, autre 0,50.
+  Prévision écrite avant la mesure (0,66 à 0,74) tenue ; validation 0,720 (moyenne des graines ; graine 42 : 0,711)
+  contre le professeur, test 0,712 contre Martin. L'élève garde 92 % du macro-F1 du professeur (TF-IDF : 82 %).
+- **Comparaison principale** (règle du 13 oct. 2026 : meilleur modèle entraîné, choisi sur la validation, contre
+  mistral-small v4 ; bootstrap apparié, 2 000 tirages) : écart DistilBERT − LLM en macro-F1 −0,058 [−0,115 ; +0,003] ;
+  accord exact −0,080 [−0,133 ; −0,030]. Sur la métrique principale, l'intervalle contient 0 (de justesse) : selon la
+  règle, la supériorité du LLM n'est pas démontrée et la décision se prend sur le coût et la latence. Réserves à
+  reporter dans le livrable : l'estimation ponctuelle favorise le LLM de 0,058 et l'intervalle admet jusqu'à −0,115
+  (300 avis ne suffisent pas à trancher un écart de cette taille) ; l'accord exact, métrique secondaire, montre le LLM
+  meilleur (intervalle excluant 0) ; sur fraicheur_securite, rappel 0,70 contre 0,89, soit ~3 000 plaintes de sécurité
+  manquées en plus pour 100 000 avis (15 % de ce motif), à comparer aux 14,6 $ du LLM. Recommandation finale à rédiger
+  dans le livrable, pas tranchée ici.
 
 ## Sortie du LLM
 - Schéma Pydantic `Etiquetage` : `evidence` (str), puis `motif_libre` (str, 3-6 mots), puis `motifs` (liste).
