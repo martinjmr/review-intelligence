@@ -4,7 +4,10 @@ Trier automatiquement les avis clients négatifs par motif d'insatisfaction, pou
 Trois approches comparées sur la qualité, le coût et la latence : TF-IDF + régression logistique, DistilBERT fine-tuné,
 LLM Mistral par API. Puis une recommandation chiffrée.
 
-Données : Amazon Reviews 2023 (McAuley Lab), catégorie Grocery_and_Gourmet_Food, avis en anglais notés 1 à 3.
+Données : Amazon Reviews 2023 (McAuley Lab), catégorie Grocery_and_Gourmet_Food, avis en anglais notés 1 à 3
+(Y. Hou, J. Li, Z. He, A. Yan, X. Chen et J. McAuley (2024), « Bridging Language and Items for Retrieval and
+Recommendation », [arXiv:2403.03952](https://arxiv.org/abs/2403.03952)). Le dépôt ne contient aucun texte d'avis :
+seulement les identifiants et les motifs des 300 avis annotés.
 
 ![Synthèse](livrable/synthese.png)
 
@@ -155,3 +158,5 @@ python livrable/slide.py                                    # slide de synthèse
 | `docs/CONVENTIONS.md` | toutes les décisions et tous les chiffres, datés |
 | `docs/guide_annotation.md` | guide d'annotation (v1, gelé) |
 | `livrable/` | slide de synthèse (`slide.py` produit `synthese.png` et `synthese.pdf`) |
+
+Code sous licence MIT (voir [`LICENSE`](LICENSE)).
