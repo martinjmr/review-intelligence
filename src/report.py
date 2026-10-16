@@ -1,4 +1,4 @@
-"""Étape 3 : analyser les étiquettes et décider si la liste de motifs tient (cours 1, section 9).
+"""Étape 3 : analyser les étiquettes et décider si la liste de motifs tient.
 
 Usage :  python -m src.report data/labels_explo_v1.jsonl
 """

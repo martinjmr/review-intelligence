@@ -1,4 +1,4 @@
-"""Tests de l'étape 2 (outil d'annotation) et des métriques (cours 2). Lance-les avec :  python -m pytest -q
+"""Tests de l'étape 2 (outil d'annotation) et des métriques. Lance-les avec :  python -m pytest -q
 Les métriques sont comparées à scikit-learn sur des données tirées au hasard : si tes chiffres
 diffèrent de ceux de la bibliothèque, le test le dit.
 """
@@ -81,7 +81,7 @@ def test_to_matrix():
     assert Y.tolist() == [[0, 0, 0, 0, 1, 0], [0, 0, 0, 0, 0, 1], [1, 1, 0, 0, 0, 0]]
 
 
-def test_cohen_kappa_exemple_du_cours():
+def test_cohen_kappa_exemple_chiffre():
     a = [1] * 8 + [0] * 42                       # passe 1 : 8 avis « prix » sur 50
     b = [1] * 6 + [0] * 2 + [1] + [0] * 41       # passe 2 : 6 en commun, 2 perdus, 1 ajouté
     assert cohen_kappa(a, b) == pytest.approx(0.7649, abs=1e-4)

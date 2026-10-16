@@ -1,4 +1,4 @@
-"""Tests de DistilBERT (cours 4) : seulement les fonctions sans torch, qui tournent en local.
+"""Tests de DistilBERT : seulement les fonctions sans torch, qui tournent en local.
 L'entraînement lui-même se vérifie sur Colab avec `python -m src.distilbert grid --rapide`.
 """
 import json

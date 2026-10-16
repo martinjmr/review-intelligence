@@ -1,4 +1,4 @@
-"""Tests de l'étape 4 : TF-IDF + régression logistique (cours 3). Lance-les avec :  python -m pytest -q
+"""Tests de l'étape 4 : TF-IDF + régression logistique. Lance-les avec :  python -m pytest -q
 Données jouets, sauf le dernier test, qui vérifie le découpage réel contre CONVENTIONS.md
 (sauté si data/pool.parquet ou data/labels_train_v4.jsonl est absent).
 """

@@ -1,4 +1,4 @@
-"""Étapes 2 et 3 : mesurer un accord entre annotations et la qualité d'un classifieur (cours 2, sections 5 à 7).
+"""Étapes 2 et 3 : mesurer un accord entre annotations et la qualité d'un classifieur.
 
 Usage :
   python -m src.metrics accord                                    # ta cohérence : passe 1 contre passe 2

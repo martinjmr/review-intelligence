@@ -1,4 +1,4 @@
-"""Étape 4 : TF-IDF + régression logistique, entraînés sur les étiquettes du LLM (cours 3).
+"""Étape 4 : TF-IDF + régression logistique, entraînés sur les étiquettes du LLM.
 
 Usage :
   python -m src.tfidf_lr grid     # les 20 configurations : entraînement sur 3 983 avis, mesure sur les 996 de validation
@@ -8,7 +8,7 @@ Usage :
   python -m src.tfidf_lr explique --termes taste stale --motif autre    # autres termes, confusions d'un autre motif
 Produit : data/tfidf_lr_choix.json (grille et configuration choisie) ; data/preds_test_tfidf.jsonl (une ligne par
 avis de test, format lu par `python -m src.metrics eval`).
-Le test n'est lu que par `final`, qui refuse de tourner deux fois (cours 3, section 6 : le biais du gagnant).
+Le test n'est lu que par `final`, qui refuse de tourner deux fois (biais du gagnant).
 """
 import argparse
 import json
@@ -33,8 +33,8 @@ CHOIX = Path("data/tfidf_lr_choix.json")
 PREDS_TEST = Path("data/preds_test_tfidf.jsonl")
 N_VAL = 1000              # validation tirée du train (CONVENTIONS.md, section Modèles entraînés)
 SEED = 42
-THRESHOLD = 0.5           # fixe : class_weight="balanced" fait déjà le travail du seuil (cours 3, section 4)
-MOTIFS_PLAINTE = [m for m in MOTIFS if m != "autre"]   # 5 classifieurs ; autre se déduit (cours 3, section 5)
+THRESHOLD = 0.5           # fixe : class_weight="balanced" fait déjà le travail du seuil
+MOTIFS_PLAINTE = [m for m in MOTIFS if m != "autre"]   # 5 classifieurs ; autre se déduit
 GRID = [{"C": C, "ngram_range": ng, "min_df": md}      # fixée avant toute mesure : 20 configurations
         for C in (0.1, 0.3, 1, 3, 10) for ng in ((1, 1), (1, 2)) for md in (1, 3)]
 REFIT = True   # décision B du 14 oct. 2026 (CONVENTIONS.md) : ré-entraîné sur 4 979 avis avant le test
@@ -82,7 +82,7 @@ def build_pipeline(C, ngram_range, min_df):
 
     TfidfVectorizer(ngram_range, min_df, sublinear_tf=True), mots vides gardés (stop_words par défaut) ;
     OneVsRestClassifier(LogisticRegression(C, class_weight="balanced", max_iter=2000)), sans `penalty`
-    (déprécié depuis scikit-learn 1.8 ; L2 par défaut). Cours 3, sections 3, 4 et 6.
+    (déprécié depuis scikit-learn 1.8 ; L2 par défaut).
     """
     vectorizer = TfidfVectorizer(ngram_range=ngram_range, min_df=min_df, sublinear_tf=True)
     classifier = OneVsRestClassifier(LogisticRegression(C=C, class_weight="balanced", max_iter=2000))
@@ -110,7 +110,7 @@ def top_words(pipeline, motif, k=10):
     """Les k termes (mots ou paires de mots) au poids le plus élevé pour `motif`, du plus lourd au moins lourd.
 
     pipeline : un pipeline de build_pipeline déjà entraîné. motif : un des MOTIFS_PLAINTE, sinon ValueError
-    (autre n'a pas de classifieur). Cours 3, section 7.
+    (autre n'a pas de classifieur).
     """
     if motif not in MOTIFS_PLAINTE:
         raise ValueError(f"{motif!r} n'a pas de classifieur (autre se déduit des 5 autres motifs)")
@@ -119,7 +119,7 @@ def top_words(pipeline, motif, k=10):
     return [str(names[i]) for i in np.argsort(weights)[::-1][:k]]
 
 
-# ---------- Expliquer les prédictions (cours 3, section 7) ----------
+# ---------- Expliquer les prédictions ----------
 
 TERMES_FRAICHEUR = ["taste", "flavor", "stale", "old", "date", "expired", "sick", "rancid", "moldy", "bugs"]
 
@@ -148,7 +148,7 @@ def contributions(pipeline, text):
 
     termes : [(terme, contribution), ...] pour chaque terme du texte présent dans le vocabulaire, du plus favorable
     au plus défavorable au motif ; contribution = poids du terme x sa valeur TF-IDF dans le texte.
-    Par construction, proba = sigmoïde(somme des contributions + intercept) (cours 3, section 4).
+    Par construction, proba = sigmoïde(somme des contributions + intercept).
     """
     vec, clf = pipeline[0], pipeline[-1]
     x = vec.transform([text])                                      # une ligne creuse : x.indices, x.data
@@ -240,21 +240,21 @@ def run_grid(train, val, out=CHOIX):
     pipe.predict_proba(texts)
     batch_ms = (time.perf_counter() - t0) / len(texts) * 1000
     print(f"Prédiction par lot : {batch_ms:.3f} ms par avis ; taille du modèle : {len(pickle.dumps(pipe)) / 1e6:.1f} Mo")
-    print("\nTermes les plus lourds (cours 3, section 7) :")
+    print("\nTermes les plus lourds :")
     for m in MOTIFS_PLAINTE:
         print(f"  {m:20s} " + ", ".join(top_words(pipe, m, 10)))
 
     out.write_text(json.dumps({"date": date.today().isoformat(), "config": cfg, "f1_val": rows[best]["f1_val"],
                                "n_train": len(train), "n_val": len(val), "grille": rows},
                               indent=1, ensure_ascii=False), encoding="utf-8")
-    print(f"\nChoix enregistré dans {out}. Avant `final` : trancher REFIT (cours 3, section 6).")
+    print(f"\nChoix enregistré dans {out}. Avant `final` : trancher REFIT.")
 
 
 def run_final(pool_path=POOL, labels_path=LABELS, choix=CHOIX, out=PREDS_TEST, refit=REFIT):
     if out.exists():
-        raise SystemExit(f"{out} existe déjà : le test se mesure une seule fois par modèle figé (cours 3, section 6).")
+        raise SystemExit(f"{out} existe déjà : le test se mesure une seule fois par modèle figé (biais du gagnant).")
     if refit is None:
-        raise SystemExit("Tranche d'abord le ré-entraînement (cours 3, section 6) : REFIT = False ou True en tête "
+        raise SystemExit("Tranche d'abord le ré-entraînement : REFIT = False ou True en tête "
                          "de src/tfidf_lr.py, et consigne la décision dans CONVENTIONS.md.")
     if not choix.exists():
         raise SystemExit("Lance d'abord `python -m src.tfidf_lr grid`.")
@@ -354,7 +354,7 @@ def run_explique(terms=TERMES_FRAICHEUR, texte=None, motif="fraicheur_securite",
 
 
 def main():
-    parser = argparse.ArgumentParser(description="TF-IDF + régression logistique (cours 3)")
+    parser = argparse.ArgumentParser(description="TF-IDF + régression logistique")
     parser.add_argument("cmd", choices=["grid", "final", "explique"])
     parser.add_argument("--texte", default=None, help="explique : contributions des termes pour ce texte")
     parser.add_argument("--termes", nargs="+", default=TERMES_FRAICHEUR, help="explique : termes du tableau des poids")

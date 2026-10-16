@@ -1,4 +1,4 @@
-"""Étape 2 : faire étiqueter des avis par un LLM (cours 1, sections 4 à 7).
+"""Étape 2 : faire étiqueter des avis par un LLM.
 
 Usage :  python -m src.label_llm --part explo --prompt v1
 Produit : data/labels_<part>_<prompt>.jsonl (une ligne par avis, reprise automatique).

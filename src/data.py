@@ -1,4 +1,4 @@
-"""Étape 1 : construire le réservoir d'avis et le découper (cours 1, section 8).
+"""Étape 1 : construire le réservoir d'avis et le découper.
 
 Usage :  python -m src.data --n-read 500000
 Produit : data/pool.parquet (20 000 avis, avec une colonne `part`).

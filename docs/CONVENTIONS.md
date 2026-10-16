@@ -1,4 +1,4 @@
-# Conventions du projet (résumé des décisions du cours 1)
+# Conventions du projet : décisions et résultats datés
 
 ## Motifs (version v2, validée le 12 oct. 2026 sur les 200 avis d'explo)
 | Motif | Définition | Frontière |
@@ -49,7 +49,7 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   fraicheur_securite 0,39 (5 / 4), prix 0,74 (8 / 5) ; non interprétables (trop peu de positifs) : non_conforme 0,88
   (4 / 5), autre 0,46 (6 / 9). En passe 2, moins de motifs secondaires (reception 7 -> 4, prix 8 -> 5) et plus d'autre
   (6 -> 9). L'accord est peut-être gonflé par la reconnaissance des avis (délai court, annotation rapide).
-  Plafond de mesure (cours 2, section 5) : 2e(1 − e) = 0,30 donne e ≈ 0,18 ; environ 18 % des avis de la référence
+  Plafond de mesure : 2e(1 − e) = 0,30 donne e ≈ 0,18 ; environ 18 % des avis de la référence
   portent une étiquette instable, et même un modèle parfait n'aurait qu'environ 82 % d'accord exact avec la passe 1
   (hypothèse d'erreurs indépendantes, optimiste).
 - Passe 3 faite le 14 oct. 2026 (15 désaccords arbitrés, commit `ccb2d66`), avant l'étiquetage du test par le LLM.
@@ -155,9 +155,9 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   gout_texture 0,845, fraicheur_securite 0,730, non_conforme 0,525, prix 0,687, autre 0,429 (précision 0,36, rappel
   0,54 : autre sert de fourre-tout quand les 5 classifieurs hésitent). Plateau : 5 configurations entre 0,643 et 0,651,
   écarts probablement dus au bruit ; 0,651 est le maximum de 20 mesures, donc légèrement optimiste. Entraînement 0,5 s,
-  prédiction par lot 0,04 ms par avis, modèle 0,9 Mo. Prévision écrite avant la mesure sur le test (cours 3,
-  section 2) : macro-F1 entre 0,55 et 0,68.
-- DistilBERT (`src/distilbert.py`, entraînement sur Colab, GPU Tesla T4 ; cours 4). Réglages fixés avant la grille :
+  prédiction par lot 0,04 ms par avis, modèle 0,9 Mo. Prévision écrite avant la mesure sur le test :
+  macro-F1 entre 0,55 et 0,68.
+- DistilBERT (`src/distilbert.py`, entraînement sur Colab, GPU Tesla T4). Réglages fixés avant la grille :
   `distilbert-base-uncased` (66,96 M de paramètres, dont 0,59 M pour la tête neuve), même texte que TF-IDF (titre +
   texte), 512 tokens au plus (mesuré sur l'entraînement : médiane 47, 1,9 % au-delà de 256, 0,2 % au-delà de 512),
   remplissage dynamique, lots de 16, 5 sorties (une par motif de plainte), entropie croisée binaire pondérée par
@@ -189,8 +189,8 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   gout_texture.
 - Mesure finale (`final`, une fois) : le réglage choisi est ré-entraîné sur les 4 979 avis (décision B), graine 42
   fixée d'avance (la moins bonne des trois en validation, 0,711 : pas de choix de graine), même calendrier et même
-  époque d'arrêt que dans la grille, puis prédit les 300 avis de test. Prévision écrite avant la mesure (cours 4,
-  section 10) : macro-F1 sur le test entre 0,66 et 0,74. Dans le code : `GRILLE_VALIDEE = True`.
+  époque d'arrêt que dans la grille, puis prédit les 300 avis de test. Prévision écrite avant la mesure :
+  macro-F1 sur le test entre 0,66 et 0,74. Dans le code : `GRILLE_VALIDEE = True`.
 
 ## Résultats sur le test (300 avis, référence finale de Martin)
 | Modèle | macro-F1 [IC 95 %] | micro-F1 [IC 95 %] | Accord exact [IC 95 %] | Coût / 100 000 avis | Latence médiane / p95 | Date |
@@ -245,6 +245,19 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   meilleur (intervalle excluant 0) ; sur fraicheur_securite, rappel 0,70 contre 0,89, soit ~3 000 plaintes de sécurité
   manquées en plus pour 100 000 avis (15 % de ce motif), à comparer aux ~4,6 € du LLM. Recommandation finale à rédiger
   dans le livrable, pas tranchée ici.
+- Rappel fraicheur_securite, bootstrap apparié (16 oct. 2026, 2 000 tirages, prédictions existantes, aucune nouvelle
+  mesure) : DistilBERT − LLM −0,196 [−0,340 ; −0,069] (46 plaintes : 10 retrouvées par le LLM seul, 1 par DistilBERT
+  seul) ; TF-IDF − LLM −0,261 [−0,395 ; −0,135]. Motif choisi après coup (écart repéré à la mesure de TF-IDF) : avec la
+  correction de Bonferroni sur les 6 motifs (alpha = 0,05/6), −0,196 [−0,383 ; −0,022] et −0,261 [−0,452 ; −0,103],
+  toujours négatifs. F1 du motif, DistilBERT − LLM : −0,165 [−0,272 ; −0,073] (Bonferroni [−0,318 ; −0,038]).
+  Précision : LLM 0,911, DistilBERT 0,780, −0,131 [−0,248 ; −0,015] (Bonferroni [−0,296 ; +0,030]). Pour 100 000 avis
+  (15 % de ce motif) : ~3 000 plaintes de sécurité manquées en plus par DistilBERT [~1 000 ; ~5 100]. Seuil de
+  DistilBERT (0,5) non optimisé pour ce motif : le baisser remonterait son rappel au prix de sa précision (non essayé).
+- Repère humain (précision du 16 oct. 2026) : 0,70 compare la passe 2 à la passe 1 sur 50 des 300 avis ; les modèles
+  sont mesurés contre la référence arbitrée sur les 300. Cible et taille différentes, et l'intervalle [0,58 ; 0,82]
+  contient 0,763 : les deux chiffres ne se comparent pas directement. Le livrable ne dit plus « au niveau d'un
+  annotateur humain » ; le repère n'y sert qu'à montrer que la tâche est ambiguë. Même réserve pour les lectures
+  « au niveau de Martin avec lui-même » ci-dessus (kappas).
 
 ## Sortie du LLM
 - Schéma Pydantic `Etiquetage` : `evidence` (str), puis `motif_libre` (str, 3-6 mots), puis `motifs` (liste).

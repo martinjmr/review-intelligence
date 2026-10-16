@@ -1,4 +1,4 @@
-"""Étape 2 : annoter à la main les 300 avis de test, à l'aveugle (cours 2, sections 3 et 4).
+"""Étape 2 : annoter à la main les 300 avis de test, à l'aveugle.
 
 Usage :
   python -m src.annotate --part explo            # échauffement sur explo (q pour arrêter quand tu veux)
@@ -28,7 +28,7 @@ from src.label_llm import Motif, check_rules
 POOL = Path("data/pool.parquet")
 OUT = Path("data/annotations_test.jsonl")
 GUIDE_VERSION = "v1"      # à changer à chaque modification du guide (docs/guide_annotation.md)
-N_REANNOT = 50            # avis ré-annotés en passe 2 (décision du 13 oct. 2026 ; cours 2, section 5)
+N_REANNOT = 50            # avis ré-annotés en passe 2 (décision du 13 oct. 2026)
 MIN_DAYS = 3              # délai minimal entre passe 1 et passe 2, pour oublier ses réponses
 
 MOTIFS = get_args(Motif)

@@ -1,4 +1,4 @@
-"""Étape 4 : DistilBERT fine-tuné sur les étiquettes du LLM, sur GPU (Colab) (cours 4).
+"""Étape 4 : DistilBERT fine-tuné sur les étiquettes du LLM, sur GPU (Colab).
 
 Usage dans Colab, depuis le dossier du paquet (voir data/colab/distilbert_colab.ipynb) :
   python -m src.distilbert grid --rapide --out-dir DOSSIER   # test de fumée : 64 avis, 1 époque, ~1 min
@@ -50,7 +50,7 @@ BUNDLE_FILES = ["src/__init__.py", "src/label_llm.py", "src/annotate.py", "src/m
 def pos_weights(Y):
     """Poids des positifs pour BCEWithLogitsLoss, un par motif : n_négatifs / n_positifs.
 
-    Même rapport positifs / négatifs que class_weight="balanced" de TF-IDF (cours 3, section 4).
+    Même rapport positifs / négatifs que class_weight="balanced" de TF-IDF.
     Lève ValueError si un motif n'a aucun positif.
     """
     Y = np.asarray(Y)
@@ -292,7 +292,7 @@ def run_grid(out_dir=OUT_DIR, rapide=False):
 
 
 def run_compare(out_dir=OUT_DIR):
-    """TF-IDF contre DistilBERT sur les 996 avis de validation, bootstrap apparié (cours 2, section 7).
+    """TF-IDF contre DistilBERT sur les 996 avis de validation, bootstrap apparié.
     Les deux modèles sont entraînés sur les mêmes 3 983 avis ; DistilBERT : le réglage choisi par la grille."""
     from src.tfidf_lr import build_pipeline, load_config
     out_dir = Path(out_dir)
@@ -342,9 +342,9 @@ def run_final(out_dir=OUT_DIR, validee=GRILLE_VALIDEE, pool_path=POOL):
     out_dir = Path(out_dir)
     out = out_dir / "preds_test_distilbert.jsonl"
     if out.exists():
-        raise SystemExit(f"{out} existe déjà : le test se mesure une seule fois par modèle figé (cours 3, section 6).")
+        raise SystemExit(f"{out} existe déjà : le test se mesure une seule fois par modèle figé (biais du gagnant).")
     if not validee:
-        raise SystemExit("La grille doit d'abord être expliquée et validée (cours 4) : GRILLE_VALIDEE = True en tête de "
+        raise SystemExit("La grille doit d'abord être validée : GRILLE_VALIDEE = True en tête de "
                          "src/distilbert.py, et décision consignée dans CONVENTIONS.md.")
     runs = read_runs(out_dir / "grille.jsonl")
     if not runs:
@@ -388,7 +388,7 @@ def run_final(out_dir=OUT_DIR, validee=GRILLE_VALIDEE, pool_path=POOL):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="DistilBERT fine-tuné (cours 4)")
+    parser = argparse.ArgumentParser(description="DistilBERT fine-tuné")
     parser.add_argument("cmd", choices=["grid", "final", "paquet", "compare"])
     parser.add_argument("--out-dir", default=str(OUT_DIR), help="dossier des résultats (sur Drive dans Colab)")
     parser.add_argument("--rapide", action="store_true", help="grid : test de fumée sur 64 avis, 1 époque")
