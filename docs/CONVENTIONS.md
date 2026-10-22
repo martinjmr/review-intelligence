@@ -285,6 +285,40 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   Les exemples few-shot viennent de `explo`.
 - Vérifier la diversité des 500 000 premiers avis (produits, années) : le streaming lit dans l'ordre du fichier.
 
+## RAG (jalon 2, décisions du 22 oct. 2026)
+- Périmètre : RAG écrit à la main (`src/rag.py`, numpy), sans framework ; une version LangChain viendra au jalon 3,
+  quand le RAG deviendra un outil de l'agent.
+- Corpus : `corpus/politique_client.jsonl`, politique client d'une épicerie en ligne fictive (nom provisoire
+  `MARQUE = "Larder Lane"`), en anglais comme les avis. Un passage par ligne : `id` (P01...), `titre`, `motifs` (motifs
+  v2 sauf `autre`, ou `general`), `texte`. Critères vérifiés par les tests : 40 à 80 passages, au moins 5 par motif,
+  100 à 250 mots chacun. Premier jet généré par un LLM le 22 oct. (46 passages, 105 à 135 mots), **validé tel quel par
+  Martin le 22 oct.**, avec ses règles chiffrées (30 jours pour réclamer, remboursement sous 5 jours ouvrés sans retour
+  du produit, remplacement sous 2 jours ouvrés, garantie goût de 15 $ maximum, 30 jours de durée de vie garantie,
+  équipe sécurité sous 24 h, escalade sous 1 jour ouvré, livraison offerte dès 35 $). Le corpus est la référence de
+  l'évaluation : toute modification ultérieure se date ici et impose de reconstruire l'index.
+  - 22 oct., P08 : phrase ajoutée avec les mots des clients (« This applies even when the outside of the box looks
+    fine and the damage is only visible once the box is opened. »), 157 mots. Raison : au test d'échauffement, un avis
+    « pot cassé, carton intact » classait P14 (Damaged box but intact product) devant P08 (0,808 contre 0,799).
+    Aucune règle chiffrée changée.
+- Embeddings : `mistral-embed` (1 024 dimensions, norme 1), vecteurs renormalisés par le code ; on indexe titre + texte.
+  Index : `data/rag/index.npy` + `index.json`, recalculé seulement si l'empreinte (SHA-256 des textes et du modèle) change.
+- Recherche exacte (`M @ q`), k = 5 par défaut ; filtre par motif : motifs prédits par v4 + passages `general`, aucun
+  filtre si le motif est `autre` ou la prédiction invalide. Filtre gardé ou non selon le rappel mesuré sur `rag_dev`.
+- Jeux du jalon 2, tirés une fois de la réserve (graine 42, après tri par review_id) : `rag_dev` 50 avis (mise au
+  point libre ; 30 annotés pour la recherche), `rag_eval` 150 avis gelés comme le test. Le test de 300 avis n'entre
+  jamais dans un prompt RAG. Liste dans `data/rag/jeux.json` ; motifs prédits dans `data/labels_<jeu>_v4.jsonl`.
+- Génération : `mistral-small-2603`, prompt `prompts/rag_v1.txt`, temperature=0, random_seed=42, max_tokens=500,
+  sortie structurée `ReponseClient` (`reponse`, `citations`, `action`) ; actions : remboursement, remplacement,
+  geste_commercial, escalade_securite, escalade, aucune. Deux modes : `rag` (k passages retrouvés) et `plein` (tout le
+  corpus, même gabarit, pour profiter du cache).
+- Vérification en code (`verifier_citations`) : citation_inconnue, citation_non_declaree, citation_absente_du_texte,
+  sans_citation. Une citation s'écrit `[P12]`, un identifiant par crochet.
+- Mesure de la recherche : rappel@k (au moins un passage pertinent dans les k premiers) et MRR, sur des passages
+  pertinents annotés à la main avant de voir les résultats (`data/rag/pertinents_<jeu>.jsonl`) ; avis sans passage
+  pertinent exclus. Seuil visé : rappel@5 >= 0,80.
+- Coût estimé (1,267 token par mot mesuré sur l'explo ; réponse ~150 tokens) : ~226 µ$ par réponse en mode `rag`,
+  ~214 µ$ en mode `plein` avec le cache (1 225 µ$ sans) ; indexation du corpus ~7 100 tokens, 0,0007 $.
+
 ## Coûts (hypothèses à remplacer par les mesures réelles)
 - Mesuré le 12 oct. 2026 (prompt v1, mistral-small, 200 avis) : 266 tokens en entrée, 47 en sortie en moyenne ;
   latence médiane 0,95 s, p95 3,1 s (retries probables, non enregistrés : ajouter un champ `attempts`).
