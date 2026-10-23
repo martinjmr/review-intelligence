@@ -38,18 +38,38 @@ EMBED_MODEL = "mistral-embed"
 PRIX_EMBED = 0.10         # $ par million de tokens (fiche du modèle, 22 oct. 2026)
 TAILLE_LOT = 32           # textes par requête d'embeddings (aucune limite documentée)
 PAUSE_EMBED_S = 1.1
-K = 5
+K = 8                     # rappel@8 sans filtre 0,885 sur 26 avis de rag_dev (23 oct. 2026), contre 0,769 à k = 5
 N_DEV, N_EVAL = 50, 150
 SEED = 42
 MARQUE = "Larder Lane"    # marque fictive : à changer si tu préfères un autre nom
-PROMPT_RAG = "rag_v1"
+PROMPT_RAG = "rag_v4"      # v4 (23 oct. 2026) : cas B restreint (v3 : raison et cas avant la réponse ; v2 : règles)
+SANS_PROMESSE = ("escalade", "escalade_securite", "aucune")   # actions qui ne promettent rien : citation facultative
 MOTIFS_PASSAGE = set(MOTIFS) - {"autre"} | {"general"}
-CITATION = re.compile(r"\[(P\d+)\]")   # une citation = un identifiant entre crochets : [P07]
+# Une citation = un ou plusieurs identifiants entre crochets : [P07], ou [P07, P12] que le modèle écrit parfois.
+CITATION = re.compile(r"\[(P\d+(?:\s*[,;]\s*P\d+)*)\]")
+ACTION_DU_CAS = {"securite": "escalade_securite", "sans_plainte": "aucune"}   # « plainte » : selon les passages
+
+# Phrases à signaler au relecteur humain (cas vus sur rag_dev le 23 oct. 2026)
+CONDITION_SUPPOSEE = re.compile(r"\b(since|as|because)\s+(this|it)\s+(is|was)\s+your\s+first\b|first-time buyer",
+                                re.IGNORECASE)
+ALTERNATIVE = re.compile(r"\b(refund|replacement)\b[^.]*\binstead\b|\bprefer\s+a\s+(refund|replacement)\b",
+                         re.IGNORECASE)
+AFFIRME_SECURITE = re.compile(r"\b(is|are)\s+(perfectly\s+|completely\s+)?safe\b|\bsafe\s+to\s+(eat|consume)\b"
+                              r"|\bnot\s+affect\s+(the\s+)?safety\b", re.IGNORECASE)
+# Mots de sécurité dans l'AVIS, indépendants du LLM : 3,1 % des 4 979 avis du train, dont 70 % classés
+# fraicheur_securite par v4 (mesuré le 23 oct. 2026) ; les fausses alertes restantes se trient à la relecture.
+MOTS_SECURITE = re.compile(
+    r"\b(shards?|pits?|stones?|(pieces?|bits?|chunks?) of (glass|plastic|metal|bone|wood)|hair|insects?|bugs?|worms?"
+    r"|larvae|maggots?|weevils?|moths?|mou?ldy?|sick|illness|vomit\w*|diarrh\w*|allergic|allergy|hospital\w*"
+    r"|chok(ed|ing)|(broke|broken|cracked|chipped)\s+(a\s+|my\s+)?(tooth|teeth)|swollen|bulging)\b", re.IGNORECASE)
 
 Action = Literal["remboursement", "remplacement", "geste_commercial", "escalade_securite", "escalade", "aucune"]
+Cas = Literal["securite", "sans_plainte", "plainte"]
 
 
 class ReponseClient(BaseModel):
+    raison: str               # généré en 1er : ce que signale le client, en une phrase
+    cas: Cas                  # généré en 2e : la décision, avant toute rédaction
     reponse: str              # le texte destiné au client, avec les [Pxx]
     citations: list[str]      # identifiants des passages utilisés
     action: Action            # ce que la marque fait ensuite
@@ -190,10 +210,10 @@ def verifier_citations(reponse, citations, action, ids_fournis):
       "citation_inconnue"         : un identifiant (de citations ou du texte) absent de ids_fournis ;
       "citation_non_declaree"     : un [Pxx] du texte absent de citations ;
       "citation_absente_du_texte" : un identifiant de citations jamais écrit [Pxx] dans le texte ;
-      "sans_citation"             : citations vide alors que l'action n'est ni "escalade" ni "aucune".
-    Les [Pxx] du texte se trouvent avec CITATION.findall(reponse).
+      "sans_citation"             : citations vide alors que l'action promet quelque chose (hors SANS_PROMESSE).
+    Les [Pxx] du texte se trouvent avec ids_dans_texte(reponse).
     """
-    dans_texte = set(CITATION.findall(reponse))
+    dans_texte = ids_dans_texte(reponse)
     declarees = set(citations)
     problemes = []
     if (dans_texte | declarees) - set(ids_fournis):
@@ -202,9 +222,40 @@ def verifier_citations(reponse, citations, action, ids_fournis):
         problemes.append("citation_non_declaree")
     if declarees - dans_texte:
         problemes.append("citation_absente_du_texte")
-    if not citations and action not in ("escalade", "aucune"):
+    if not citations and action not in SANS_PROMESSE:
         problemes.append("sans_citation")
     return problemes
+
+
+def ids_dans_texte(reponse):
+    """Ensemble des identifiants cités dans le texte : [P07] -> {"P07"}, [P20, P23] -> {"P20", "P23"}."""
+    return {i for groupe in CITATION.findall(reponse) for i in re.findall(r"P\d+", groupe)}
+
+
+def signaux_redaction(reponse, action, cas, avis=""):
+    """Phrases et incohérences à signaler au relecteur humain. Le code ne corrige rien : il étiquette.
+
+    Dans cet ordre, chacun au plus une fois :
+      "cas_action_incoherent"  : le cas impose une action (securite -> escalade_securite, sans_plainte -> aucune)
+                                 et l'action choisie est différente ;
+      "condition_supposee"     : une condition invérifiable affirmée (« since this is your first purchase ») ;
+      "alternative_non_prevue" : un remboursement ou remplacement proposé « à la place » d'un avoir ;
+      "affirme_securite"       : le texte affirme qu'un produit est sûr (interdit par P05 avant enquête) ;
+      "securite_a_verifier"    : l'avis (titre + texte) contient un mot de sécurité et l'action n'est pas
+                                 escalade_securite. Seul signal qui ne dépend pas de ce que le LLM a écrit.
+    """
+    signaux = []
+    if cas in ACTION_DU_CAS and action != ACTION_DU_CAS[cas]:
+        signaux.append("cas_action_incoherent")
+    if CONDITION_SUPPOSEE.search(reponse):
+        signaux.append("condition_supposee")
+    if action == "geste_commercial" and ALTERNATIVE.search(reponse):
+        signaux.append("alternative_non_prevue")
+    if AFFIRME_SECURITE.search(reponse):
+        signaux.append("affirme_securite")
+    if action != "escalade_securite" and MOTS_SECURITE.search(avis):
+        signaux.append("securite_a_verifier")
+    return signaux
 
 
 # ---------- Mesure de la recherche ----------
@@ -381,7 +432,7 @@ def cmd_eval_recherche(part, k_max=10):
             masque = passages_autorises(motifs_passages, motifs.get(r["review_id"])) if filtre else None
             classements.append([i for i, _ in rechercher(vecteurs[r["review_id"]], M, ids, k_max, masque)])
         print(f"\n== {'avec' if filtre else 'sans'} filtre par motif ==")
-        for k in (1, 3, 5):
+        for k in (1, 3, 5, K):
             # l'intervalle a besoin du résultat avis par avis : rappel_a_k sur chaque avis seul (0 ou 1)
             par_avis = [rappel_a_k([c], [p], k) for c, p in zip(classements, pertinents)]
             _, bas, haut = ic_bootstrap(par_avis)
@@ -430,20 +481,29 @@ def cmd_repondre(part, mode, k, limit, filtre):
                     model=MODEL, response_format=ReponseClient, temperature=0, max_tokens=500, random_seed=42,
                     messages=messages))
                 parsed = rep.choices[0].message.parsed
+                if parsed:
+                    problemes = (verifier_citations(parsed.reponse, parsed.citations, parsed.action,
+                                                    [p["id"] for p in fournis])
+                                 + signaux_redaction(parsed.reponse, parsed.action, parsed.cas,
+                                                     f"{row['title']} {row['text']}"))
+                else:
+                    problemes = ["reponse_vide"]
                 ligne.update({
                     "model": rep.model,
+                    "raison": parsed.raison if parsed else None,
+                    "cas": parsed.cas if parsed else None,
                     "reponse": parsed.reponse if parsed else None,
                     "citations": parsed.citations if parsed else [],
                     "action": parsed.action if parsed else None,
-                    "problems": verifier_citations(parsed.reponse, parsed.citations, parsed.action,
-                                                   [p["id"] for p in fournis]) if parsed else ["reponse_vide"],
+                    "problems": problemes,
                     "prompt_tokens": rep.usage.prompt_tokens, "completion_tokens": rep.usage.completion_tokens,
                     "latency_s": round(time.perf_counter() - t0, 3), "attempts": essais})
             except Exception as e:
                 ligne["error"] = repr(e)[:300]
             f.write(json.dumps(ligne, ensure_ascii=False) + "\n")
             f.flush()
-            print(f"  {row['review_id'][-24:]} : {ligne.get('action', 'ERREUR')} {ligne.get('problems', '')}")
+            print(f"  {row['review_id'][-24:]} : {ligne.get('cas', '')} -> {ligne.get('action', 'ERREUR')} "
+                  f"{ligne.get('problems', '')}")
             time.sleep(PAUSE_S)
     print("Écrit :", out)
 
@@ -456,6 +516,8 @@ def cmd_montrer(part, mode):
             continue
         avis = df.loc[r["review_id"]]
         print(f"\n===== {r['review_id'][-24:]} · note {int(avis['rating'])}\nTitle: {avis['title']}\nText: {avis['text']}")
+        if r.get("cas"):                                  # absents des réponses rag_v1 et rag_v2
+            print(f"--- raison : {r['raison']}\n--- cas : {r['cas']}")
         print(f"--- passages fournis : {r['passages']}\n--- action : {r['action']} · problèmes : {r['problems']} "
               f"· {r['prompt_tokens']} tokens d'entrée, {r['completion_tokens']} de sortie\n{r['reponse']}")
 
@@ -478,7 +540,8 @@ def main():
     p.add_argument("--mode", choices=["rag", "plein"], default="rag")
     p.add_argument("--k", type=int, default=K)
     p.add_argument("--limit", type=int, default=None)
-    p.add_argument("--sans-filtre", action="store_true")
+    p.add_argument("--filtre", action="store_true",
+                   help="filtrer par motif prédit (désactivé par défaut : il excluait des passages de sécurité)")
     p = sous.add_parser("montrer")
     p.add_argument("--part", default="rag_dev")
     p.add_argument("--mode", choices=["rag", "plein"], default="rag")
@@ -495,7 +558,7 @@ def main():
     elif args.commande == "eval-recherche":
         cmd_eval_recherche(args.part)
     elif args.commande == "repondre":
-        cmd_repondre(args.part, args.mode, args.k, args.limit, not args.sans_filtre)
+        cmd_repondre(args.part, args.mode, args.k, args.limit, args.filtre)
     elif args.commande == "montrer":
         cmd_montrer(args.part, args.mode)
 

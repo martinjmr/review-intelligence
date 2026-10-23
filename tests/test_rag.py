@@ -11,8 +11,8 @@ import pytest
 
 from src.label_llm import POOL
 from src.rag import (CORPUS, MOTIFS_PASSAGE, ReponseClient, charger_corpus, construire_index, construire_messages,
-                     embed, mrr, normaliser, passages_autorises, rappel_a_k, rechercher, texte_a_indexer,
-                     tirer_jeux, verifier_citations)
+                     embed, ids_dans_texte, mrr, normaliser, passages_autorises, rappel_a_k, rechercher,
+                     signaux_redaction, texte_a_indexer, tirer_jeux, verifier_citations)
 
 
 def vecteur_jouet(texte):
@@ -159,6 +159,7 @@ def test_verifier_citations_sans_citation():
     assert verifier_citations("Sorry.", [], "remboursement", ["P07"]) == ["sans_citation"]
     assert verifier_citations("A colleague will contact you.", [], "escalade", ["P07"]) == []
     assert verifier_citations("Thanks.", [], "aucune", ["P07"]) == []
+    assert verifier_citations("Our safety team will contact you.", [], "escalade_securite", ["P07"]) == []
 
 
 def test_verifier_citations_plusieurs_problemes_dans_l_ordre_une_fois():
@@ -166,10 +167,50 @@ def test_verifier_citations_plusieurs_problemes_dans_l_ordre_une_fois():
     assert probs == ["citation_inconnue", "citation_non_declaree", "citation_absente_du_texte"]
 
 
-def test_reponse_client_refuse_une_action_inconnue():
-    ReponseClient(reponse="ok", citations=[], action="escalade")
+def test_reponse_client_refuse_une_action_ou_un_cas_inconnu():
+    ReponseClient(raison="r", cas="plainte", reponse="ok", citations=[], action="escalade")
     with pytest.raises(Exception):
-        ReponseClient(reponse="ok", citations=[], action="bon_de_reduction")
+        ReponseClient(raison="r", cas="plainte", reponse="ok", citations=[], action="bon_de_reduction")
+    with pytest.raises(Exception):
+        ReponseClient(raison="r", cas="urgent", reponse="ok", citations=[], action="escalade")
+    assert list(ReponseClient.model_fields)[:2] == ["raison", "cas"]   # décidés avant la réponse
+
+
+def test_ids_dans_texte_lit_les_deux_formats():
+    assert ids_dans_texte("A [P07][P12]. B [P20, P23]. C [note] P30 sans crochets.") == {"P07", "P12", "P20", "P23"}
+    assert verifier_citations("Credit [P20, P23].", ["P20", "P23"], "geste_commercial", ["P20", "P23"]) == []
+
+
+# Phrases tirées des réponses réelles de rag_dev (23 oct. 2026)
+def test_signaux_condition_supposee():
+    assert signaux_redaction("Since this is your first purchase of this product, we can offer a credit [P17].",
+                             "geste_commercial", "plainte") == ["condition_supposee"]
+    assert signaux_redaction("If this was your first purchase of this product, we can offer a credit [P17].",
+                             "geste_commercial", "plainte") == []
+
+
+def test_signaux_alternative_non_prevue():
+    texte = "We can offer a store credit [P17]. If you’d prefer a refund or replacement instead, let us know."
+    assert signaux_redaction(texte, "geste_commercial", "plainte") == ["alternative_non_prevue"]
+    assert signaux_redaction(texte, "remboursement", "plainte") == []          # seulement face à un avoir
+    assert signaux_redaction("The taste guarantee is not a cash refund [P17].", "geste_commercial", "plainte") == []
+
+
+def test_signaux_securite_et_coherence():
+    texte = "Natural variations can occur, and while they do not affect safety, we understand."
+    assert signaux_redaction(texte, "geste_commercial", "securite") == ["cas_action_incoherent", "affirme_securite"]
+    assert signaux_redaction("Our safety team will contact you.", "escalade_securite", "securite") == []
+    assert signaux_redaction("Thank you!", "geste_commercial", "sans_plainte") == ["cas_action_incoherent"]
+    assert signaux_redaction("Thank you!", "aucune", "sans_plainte") == []
+
+
+def test_signal_securite_a_verifier_lit_l_avis():
+    # Avis inventés : aucun texte du jeu de données dans le dépôt.
+    avis = "Crunchy dates\nThe second box had lots of pits and shards in it."
+    assert signaux_redaction("Credit [P17].", "geste_commercial", "plainte", avis) == ["securite_a_verifier"]
+    assert signaux_redaction("Our team will contact you.", "escalade_securite", "securite", avis) == []
+    assert signaux_redaction("Credit [P17].", "geste_commercial", "plainte", "Too sweet for me.") == []
+    assert signaux_redaction("Thanks.", "aucune", "plainte", "I chipped a tooth on it") == ["securite_a_verifier"]
 
 
 # ---------- mesure de la recherche ----------

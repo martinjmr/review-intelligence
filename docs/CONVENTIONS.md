@@ -302,12 +302,37 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
     Aucune règle chiffrée changée.
 - Embeddings : `mistral-embed` (1 024 dimensions, norme 1), vecteurs renormalisés par le code ; on indexe titre + texte.
   Index : `data/rag/index.npy` + `index.json`, recalculé seulement si l'empreinte (SHA-256 des textes et du modèle) change.
-- Recherche exacte (`M @ q`), k = 5 par défaut ; filtre par motif : motifs prédits par v4 + passages `general`, aucun
-  filtre si le motif est `autre` ou la prédiction invalide. Filtre gardé ou non selon le rappel mesuré sur `rag_dev`.
+- Recherche exacte (`M @ q`). **Décision du 23 oct. 2026 : k = 8, sans filtre par motif par défaut** (option
+  `--filtre` pour le réactiver). Mesure sur 26 avis annotés de `rag_dev` : rappel@5 0,769 [0,615 ; 0,923] sans filtre,
+  0,808 [0,654 ; 0,962] avec (un seul avis d'écart) ; rappel@8 sans filtre 0,885. Raisons : le filtre dur (motifs
+  prédits par v4 + `general`) excluait des passages trouvés en tête sans filtre quand le classifieur se trompait de
+  motif, dont un passage de sécurité (P32, avis classé `reception`) ; k = 8 coûte ~70 µ$ de plus par réponse.
+  Écarté pour rester simple : réécrire P17 (garantie goût, rang médian ~7,5 : le passage du remède ne ressemble pas
+  à la plainte) et un filtre souple (rappel@8 0,923). Mesure finale à refaire sur `rag_eval`.
 - Jeux du jalon 2, tirés une fois de la réserve (graine 42, après tri par review_id) : `rag_dev` 50 avis (mise au
   point libre ; 30 annotés pour la recherche), `rag_eval` 150 avis gelés comme le test. Le test de 300 avis n'entre
   jamais dans un prompt RAG. Liste dans `data/rag/jeux.json` ; motifs prédits dans `data/labels_<jeu>_v4.jsonl`.
-- Génération : `mistral-small-2603`, prompt `prompts/rag_v1.txt`, temperature=0, random_seed=42, max_tokens=500,
+- Prompt `rag_v2` depuis le 23 oct. 2026 (`rag_v1` gardé pour comparaison). Raisons, lues sur 5 réponses v1 de
+  `rag_dev` : citations absentes du texte (3/5), conditions supposées remplies (« since this is your first purchase »),
+  promesse hors politique (remboursement à la place de l'avoir de la garantie goût), avis sans plainte traité comme une
+  plainte, et « they do not affect safety » pour des éclats de noyaux. Ajouts de la v2 : cas A sécurité
+  (`escalade_securite` même sans passage fourni, jamais « safe »), cas B sans plainte (`aucune`), conditions au
+  conditionnel, aucune alternative non prévue, citation à la fin de chaque phrase de règle, avec un exemple.
+  `escalade_securite` rejoint `escalade` et `aucune` parmi les actions dispensées de citation (`SANS_PROMESSE`).
+- Prompt `rag_v3` le 23 oct. 2026, après des réponses v2 pas meilleures que v1 sur les mêmes 5 avis (le cas sécurité
+  ignoré malgré « pits » cité dans le prompt ; « since » et le remboursement à la place de l'avoir réapparus) :
+  `ReponseClient` commence par `raison` (ce que signale le client) et `cas` (securite, sans_plainte, plainte),
+  générés avant la réponse, comme `evidence` avant `motifs` au jalon 1. Garde-fous en code, sans appel, ajoutés à
+  `problems` (`signaux_redaction`) : cas_action_incoherent (securite -> escalade_securite, sans_plainte -> aucune),
+  condition_supposee, alternative_non_prevue (face à un avoir), affirme_securite, securite_a_verifier (mots de
+  sécurité dans l'avis lui-même ; 3,1 % des 4 979 avis du train, dont 70 % classés fraicheur_securite par v4). Ils
+  signalent, ne corrigent pas : la réponse reste un brouillon relu par un humain. Le contrôle des citations accepte
+  aussi `[P20, P23]`. Rejoués sur les 5 réponses v2, ils signalent toutes les fautes vues à la lecture.
+- Prompt `rag_v4` le 23 oct. 2026 : la v3 a réglé le cas sécurité (éclats de noyaux -> escalade_securite) mais a
+  classé trois plaintes de goût en `sans_plainte` ; seule la définition du cas B change : « the customer reports
+  nothing negative at all », et un goût, une odeur ou une texture qui déplaît, une préférence pour un autre produit
+  ou un prix jugé trop élevé relèvent du cas C. Dernière itération à l'œil : la suite se mesure avec le LLM-juge.
+- Génération : `mistral-small-2603`, prompt `prompts/rag_v4.txt` (v1, v2, v3 le 23 oct.), temperature=0, random_seed=42, max_tokens=500,
   sortie structurée `ReponseClient` (`reponse`, `citations`, `action`) ; actions : remboursement, remplacement,
   geste_commercial, escalade_securite, escalade, aucune. Deux modes : `rag` (k passages retrouvés) et `plein` (tout le
   corpus, même gabarit, pour profiter du cache).
@@ -315,7 +340,7 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   sans_citation. Une citation s'écrit `[P12]`, un identifiant par crochet.
 - Mesure de la recherche : rappel@k (au moins un passage pertinent dans les k premiers) et MRR, sur des passages
   pertinents annotés à la main avant de voir les résultats (`data/rag/pertinents_<jeu>.jsonl`) ; avis sans passage
-  pertinent exclus. Seuil visé : rappel@5 >= 0,80.
+  pertinent exclus. Seuil visé : rappel@5 >= 0,80 ; atteint à k = 8 sans filtre (0,885, voir ci-dessus).
 - Coût estimé (1,267 token par mot mesuré sur l'explo ; réponse ~150 tokens) : ~226 µ$ par réponse en mode `rag`,
   ~214 µ$ en mode `plein` avec le cache (1 225 µ$ sans) ; indexation du corpus ~7 100 tokens, 0,0007 $.
 
