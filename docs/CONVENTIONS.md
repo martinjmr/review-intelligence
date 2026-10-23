@@ -344,6 +344,135 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
 - Coût estimé (1,267 token par mot mesuré sur l'explo ; réponse ~150 tokens) : ~226 µ$ par réponse en mode `rag`,
   ~214 µ$ en mode `plein` avec le cache (1 225 µ$ sans) ; indexation du corpus ~7 100 tokens, 0,0007 $.
 
+## LLM-juge (jalon 2, décisions du 23 oct. 2026)
+- Version légère : la mesure doit être défendable, pas exhaustive. 20 réponses notées à la main, pas de découpage
+  calibration / contrôle (biais du gagnant accepté et signalé ; garde-fou : relecture de 10 jugements de `rag_eval`).
+- Grille, 3 critères oui / non : `action_conforme` (cas et action prévus par la politique pour cet avis),
+  `fondee` (chaque engagement est dans un passage cité, conditions au conditionnel ; une réponse sans engagement est
+  fondée), `ton` (répond au problème précis, s'excuse s'il y a un problème ; la longueur n'est pas un critère).
+  Verdict : acceptable = 3 oui ; fautive = au moins un non. Grille figée avant la notation.
+  Précisions du 23 oct., avant toute notation, dans la grille et dans `prompts/juge_v1.txt` : une plainte traitée
+  comme sans plainte rend l'action non conforme même quand `aucune` est la bonne action (prix) ; une condition du
+  passage omise dans une promesse (photo, numéro de commande, 30 jours, premier achat) ou un délai plus court que la
+  politique rend la réponse non fondée ; deux phrases sont admises sans citation (cas A : l'équipe sécurité vous
+  contactera, sans délai ; escalade : « within 1 business day ») ; rance, rassis, périmé, froid arrivé chaud = cas C.
+- Juge : `mistral-large-2512` (Mistral Large 3), temperature=0, random_seed=42, sortie structurée `Jugement`
+  (`raison` d'abord, puis les 3 booléens). Raisons : modèle différent du générateur (auto-préférence), version datée
+  et stable (Large 4 est en préversion), moins cher que Medium 3.5. Entrées : grille et politique complète (46
+  passages) dans le message système, puis avis, réponse, citations et action. Le juge ne voit ni la `raison` ni le
+  `cas` du générateur (ancrage), ni les signaux de `signaux_redaction` (contrôles indépendants).
+- Calibration sur 20 réponses v4 de `rag_dev`, notées par Martin avant le juge. Règle fixée avant de lancer le juge,
+  **appliquée critère par critère** (positif = critère à non) : rappel >= 0,80, précision >= 0,67 et kappa >= 0,40 ;
+  juge accepté si les 3 critères passent ; au moins 5 « non » et 5 « oui » de Martin par critère, sinon 10 réponses de
+  plus ; deux versions du prompt du juge au maximum, puis Large 4, puis notation à la main de la comparaison.
+  Raison (23 oct.) : les notes de Martin comptent 18 fautives sur 20 ; sur le verdict global, un juge qui dit
+  « fautive » à tout passait (rappel 1,00, précision 0,90). Par critère, non / oui : action 12 / 8, fondée 9 / 11,
+  ton 14 / 6 ; le kappa ferme le cas de « ton », où ce juge garde une précision de 0,70.
+- Calibration de `juge_v1` (23 oct., 20 réponses) : action conforme acceptée (rappel 1,00, précision 0,92, kappa
+  0,89), fondée acceptée (1,00 ; 0,69 ; 0,61), **ton refusé** (rappel 0,50, kappa 0,00) -> juge refusé. Causes lues
+  dans les raisons : le juge note la politesse et pas la précision (7 « non » ratés sur des réponses vagues, une
+  faute rejetée sur le fabricant, un détail de santé repris), et pénalise l'enthousiasme face aux 2 avis du cas B.
+- `juge_v2` (dernière version permise) : seul le ton est réécrit (5 points dans l'ordre : problème précis nommé en
+  mots concrets ; registre adapté, enthousiasme normal au cas B ; aucune faute rejetée ; aucun détail de santé ou
+  personnel ; aucun jargon) ; `raison` doit citer les mots qui nomment le problème. Grille précisée (ambiguïté
+  levée, cas prévu par le protocole) : un passage cité doit énoncer la phrase **et** s'appliquer à l'avis ; citer un
+  passage hors sujet rend la réponse non fondée. Martin passe en conséquence 2 de ses notes à fondée = non
+  (`B01D8E7ZXO`, P23 cité sans rapport ; `B07D95B76V`, P32 cité pour un corps étranger), par cohérence avec 2 autres
+  notes déjà à non pour la même raison. Biais du gagnant : v2 est réglée sur les mêmes 20 réponses ; garde-fou :
+  relecture de 10 jugements de `rag_eval`.
+- Calibration de `juge_v2` (23 oct.) : action acceptée (kappa 0,79), **fondée refusée** (rappel 0,55, précision
+  0,55, kappa −0,01 : 5 fausses alertes sur des remerciements sans engagement, que le juge sanctionne une seconde
+  fois ; 5 fautes ratées, dont le numéro de commande non cité et P05), **ton refusé** (rappel 0,93, précision 0,77,
+  kappa 0,31) -> juge refusé. Pas de combinaison des versions critère par critère (biais du gagnant).
+- Dernier essai prévu par la règle : **Large 4, `mistral-large-4-0`** (identifiants listés par `client.models.list()`
+  le 23 oct. : `mistral-large-2512`, `mistral-large-4`, `mistral-large-4-0`, `mistral-large-latest` ; pas de
+  version datée, préversion publique : mesure moins reproductible), avec `juge_v2` inchangé, une seule fois.
+  Option `--modele` de `juger`, `calibrer` et `comparer` ; un juge autre que `JUGE_MODEL` écrit dans
+  `jugements_<part>_<mode>_<prompt>_<modele>.jsonl`. Si Large 4 échoue : le juge sert seulement pour
+  `action_conforme` (validée deux fois, kappa 0,89 et 0,79) ; fondée et ton restent mesurés par les 20 notes de
+  Martin et par les garde-fous en code.
+- Calibration de Large 4 (`mistral-large-4-0`, `juge_v2`, `reasoning_effort="none"`, `top_p=1`, 23 oct.) : action
+  acceptée (rappel 0,83, précision 0,83, kappa 0,58), fondée refusée (rappel 0,64 ; précision 0,78 ; kappa 0,41),
+  ton refusé (« non » aux 20 réponses, kappa 0 : il exige aussi des détails concrets dans les remerciements du cas
+  B) -> refusé. **Décision, appliquée telle que fixée avant : on arrête de régler le juge.** Le juge retenu est
+  `mistral-large-2512` avec `juge_v2` (configuration par défaut, kappa 0,79 sur l'action), **pour `action_conforme`
+  seulement**. Fondée et ton : notes de Martin (20 réponses) et garde-fous en code ; le README le dira.
+  Constat commun aux trois juges : v4 est fautive sur 17 à 20 réponses sur 20, comme dans les notes de Martin.
+- **Prompt `rag_v5` avant la comparaison A / B** (décision de Martin, 23 oct.) : la comparaison se fera avec v5, pas
+  v4. Cible : le choix du cas. `raison` commence par la phrase la plus négative de l'avis, citée entre guillemets,
+  ou « no negative phrase » ; le cas B n'est permis que dans ce dernier cas (une note de 1 à 3 étoiles impose de
+  relire) ; liste élargie de ce qui est une plainte (couleur, plus petit, plus vieux, différent d'habitude, déception) ;
+  malaise après avoir mangé (nausée, estomac, « does not agree with ») et joint de sécurité défectueux = cas A ;
+  garantie goût réservée à un produit intact et dans sa date, sinon passages dates, fraîcheur, quantité, lot ou
+  fiche ; règle 6 : nommer le problème dans les mots du client, ne rejeter la faute sur personne. Mesure : action
+  conforme selon le juge, v5 contre v4, appariée, sur les 50 avis de `rag_dev` (`juge bilan --contre rag_v4`).
+  Limite : le juge a été calibré sur des réponses v4 ; sa validité sur l'action est supposée se transférer à v5.
+- Bilan de `rag_v5` (23 oct., 50 avis de `rag_dev`, juge sur l'action) : action conforme 0,38 contre 0,40 pour v4,
+  écart −0,02 [−0,18 ; +0,14], 9 avis gagnés contre 10 ; cas B 52 % (v4 46 %), cas A 20 % (v4 8 %). **v5 non
+  adoptée** (pas de gain, et régression de sécurité : éclats de noyaux escaladés par v4, avoir en v5). Diagnostic :
+  sur 26 cas B, 22 `raison` citent une phrase négative (« "I do not like this paste" », « "horrible" ») puis choisissent
+  quand même B : le modèle trouve la preuve mais n'applique pas la règle. Sur-escalade aussi (gaz, crampes, odeur
+  chimique, chocolat blanchi) ; la frontière malaise / goût est floue entre la politique (P29), Martin et le juge.
+- **Relance corrective `rag_v5c`** (décision de Martin, 23 oct.) : prompt v5 inchangé ; `cas_b_contredit` (code)
+  détecte un cas B dont la `raison` ne commence pas par « no negative phrase » ; une seule relance, avec la première
+  réponse et `message_correction` (qui cite la raison et interdit le cas B) ; si la relance choisit encore B, la
+  réponse est gardée et signalée `cas_b_contredit` pour un humain ; la première version est gardée dans
+  `avant_correction`. Option `--correction` de `rag repondre` ; réponses `reponses_<part>_<mode>_rag_v5c.jsonl`.
+  Mesure et règle d'adoption identiques à v5 ; si v5c échoue aussi, A contre B se fait avec v4.
+- Bilan de `rag_v5c` (23 oct., 50 avis) : **action conforme 0,70 contre 0,40**, +0,30 [+0,12 ; +0,48], 20 avis
+  gagnés contre 5, p = 0,004 ; cas B 8 % ; 18 relances, aucun cas B restant. **Règle d'adoption non remplie** :
+  l'avis aux éclats de noyaux, escaladé par v4, reçoit un avoir. Signaux en code 12 % -> 34 %, surtout
+  `condition_supposee` (1 -> 9, dont 5 réponses relancées : « Since this was your first purchase... »).
+- **`rag_v5d`, relance étendue** (décision de Martin, 23 oct., dernière itération du générateur avant A / B) : la
+  relance se déclenche aussi sur un mot de sécurité dans l'avis quand l'action n'est pas `escalade_securite`
+  (message qui demande de revérifier le cas A sans l'imposer, le détecteur ayant des faux positifs) et sur une
+  condition supposée (message qui demande le conditionnel). Une seule relance au total, messages réunis ; motifs
+  gardés dans `avant_correction.relances`. Option `--correction-etendue` ; réponses `rag_v5d`. Même mesure, même
+  règle d'adoption ; ensuite A contre B sur `rag_eval` avec la meilleure version adoptée (v4 si aucune).
+- **Version retenue : `rag_v5d`** (prompt `rag_v5` + `--correction-etendue`), décision de Martin du 23 oct.
+  Bilan sur 50 avis de `rag_dev` : action conforme 0,74 contre 0,40 pour v4, +0,34 [+0,18 ; +0,50], 20 avis gagnés
+  contre 3 ; cas B 46 % -> 8 % ; `condition_supposee` 4 ; entrée moyenne 3 710 tokens (v4 : 2 185).
+  **Règle d'adoption corrigée après la mesure, à découvert.** La règle initiale (« aucune escalade de v4 perdue »)
+  ne regardait la sécurité que dans un sens. Corrigée : on compte les escalades dans les deux sens sur les cas clairs.
+  v5d escalade le bonbon qui rend malade et l'huile qui ne passe pas (P29, ratés par v4), perd les éclats de
+  noyaux (P28, escaladés par v4 ; réponse signalée `securite_a_verifier` pour l'humain) ; la diarrhée est ratée par
+  les deux (signalée). Coût : sur-escalade (poussière, chips rances, épice en bloc). Risque de cette correction :
+  une histoire écrite après coup ; atténué par le tableau chiffré et par cette note.
+- Arrêt des itérations du générateur après v5d (Martin, 23 oct.) : rendements décroissants (0,40 -> 0,70 -> 0,74) ;
+  le cas restant (noyaux) bute sur le modèle. Erreurs connues, signalées par le code : `securite_a_verifier`,
+  `condition_supposee`, `citation_inconnue` (6 citations hors des 8 passages fournis).
+- **A contre B** : 50 premiers avis de `rag_eval`, `rag_v5d` dans les deux modes, juge `mistral-large-2512` +
+  `juge_v2` ; décision sur l'action conforme seule (`juge comparer --prompt rag_v5d`), à côté coût, latence, longueur
+  et signaux (dont `citation_inconnue`, impossible en mode `plein`). `rag_eval` reste gelé : rien n'est réglé après.
+- **Résultat A contre B** (23 oct., 50 avis de `rag_eval`, `rag_v5d`) : action conforme A (RAG) 0,68, B (toute la
+  politique) 0,78 ; B − A = +0,10 [−0,02 ; +0,22], 8 avis gagnés par B contre 3, test du signe p = 0,23 : **écart
+  non démontré**. Signaux en code A 22 %, B 8 %. Entrée moyenne A 3 553 tokens, B 10 795 ; sortie 182 / 183 ; latence
+  médiane 1,55 / 1,89 s ; longueur 73 / 78 mots. Fondée et ton (juge non validé, pour information) : A 0,38 / 0,50,
+  B 0,50 / 0,64. Coût estimé avec le cache (non mesuré sur facture) : du même ordre pour A et B, ~0,5 m$ par
+  réponse ; sans cache, B coûterait ~2,7 fois A. **Lecture** : à 46 passages, mettre toute la politique dans le
+  prompt fait au moins aussi bien que le RAG, plus simplement (pas d'index, pas de passage raté, pas de citation hors
+  passages), pour un coût voisin et +0,3 s de latence. Le RAG redevient nécessaire quand le corpus dépasse le
+  contexte (~1 500 passages de cette taille) ou quand les droits d'accès diffèrent. Pronostic du cours 5 (section 10)
+  confirmé.
+- **Décision de Martin (23 oct.) : la version finale du service reste le RAG** (`--mode rag`, k = 8, `rag_v5d`) ;
+  le mode `plein` reste disponible en option. Raisons : l'écart n'est pas démontré (p = 0,23) ; le RAG envoie 3 fois
+  moins de tokens (3 553 contre 10 795, ~2,7 fois moins cher sans cache) et répond plus vite (1,55 s contre 1,89 s) ;
+  son coût ne dépend pas de la taille du corpus. Prix assumé : action conforme 0,68 contre 0,78 en estimation
+  ponctuelle, et plus de signaux (22 % contre 8 %, dont des citations hors des passages fournis), relus par un humain.
+- Fichiers et commandes depuis le 23 oct. : `rag repondre` et `montrer` prennent `--prompt` (défaut `PROMPT_RAG`,
+  désormais `rag_v5`) ; les jugements portent le prompt des réponses dans leur nom
+  (`jugements_<part>_<mode>_<prompt RAG>_<prompt juge>[_<modèle>].jsonl`) ; `calibrer` lit les notes du prompt
+  demandé (`--prompt`, défaut `rag_v4`) ; `comparer` décide sur l'action conforme seule, fondée et ton affichés
+  comme non validés.
+- Comparaison : A = `--mode rag` (k = 8, sans filtre), B = `--mode plein`, même générateur et même prompt (`rag_v4`),
+  sur les 50 premiers avis de `rag_eval` (gelé : rien ne se règle d'après ce jeu). Notation ponctuelle (chaque
+  réponse seule, pas de biais de position). Analyse appariée : écart de taux d'acceptables, test du signe sur les avis
+  discordants, intervalle bootstrap apparié ; à côté : taux par critère, signaux en code, longueur, coût, latence.
+- Code : `src/juge.py` (commandes noter, juger, calibrer, comparer), grille `prompts/juge_v1.txt` ; fichiers
+  `data/rag/notes_martin_<part>.jsonl` et `data/rag/jugements_<part>_<mode>_<prompt juge>.jsonl`. Pauses : 25 s entre
+  deux jugements (~8 000 tokens chacun, `--pause` pour l'ajuster aux limites du compte) ; 23 s entre deux réponses en
+  mode `plein` (`PAUSE_PLEIN_S` dans `src/rag.py`, ~7 600 tokens à 20 000 tokens/min).
+
 ## Coûts (hypothèses à remplacer par les mesures réelles)
 - Mesuré le 12 oct. 2026 (prompt v1, mistral-small, 200 avis) : 266 tokens en entrée, 47 en sortie en moyenne ;
   latence médiane 0,95 s, p95 3,1 s (retries probables, non enregistrés : ajouter un champ `attempts`).

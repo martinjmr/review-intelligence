@@ -10,9 +10,10 @@ import pandas as pd
 import pytest
 
 from src.label_llm import POOL
-from src.rag import (CORPUS, MOTIFS_PASSAGE, ReponseClient, charger_corpus, construire_index, construire_messages,
-                     embed, ids_dans_texte, mrr, normaliser, passages_autorises, rappel_a_k, rechercher,
-                     signaux_redaction, texte_a_indexer, tirer_jeux, verifier_citations)
+from src.rag import (CORPUS, MOTIFS_PASSAGE, ReponseClient, cas_b_contredit, charger_corpus, construire_index,
+                     construire_messages, embed, ids_dans_texte, message_correction, messages_de_relance, mrr,
+                     normaliser, passages_autorises, rappel_a_k, rechercher, signaux_redaction, texte_a_indexer,
+                     texte_de_relance, tirer_jeux, verifier_citations)
 
 
 def vecteur_jouet(texte):
@@ -211,6 +212,40 @@ def test_signal_securite_a_verifier_lit_l_avis():
     assert signaux_redaction("Our team will contact you.", "escalade_securite", "securite", avis) == []
     assert signaux_redaction("Credit [P17].", "geste_commercial", "plainte", "Too sweet for me.") == []
     assert signaux_redaction("Thanks.", "aucune", "plainte", "I chipped a tooth on it") == ["securite_a_verifier"]
+
+
+# ---------- relance corrective (rag_v5) ----------
+
+def test_cas_b_contredit_lit_le_debut_de_la_raison():
+    assert not cas_b_contredit("no negative phrase. The customer loves it.", "sans_plainte")
+    assert not cas_b_contredit('"No negative phrase" The customer loves it.', "sans_plainte")   # guillemets, majuscules
+    assert cas_b_contredit('"I do not like this paste" The customer dislikes the smell.', "sans_plainte")
+    assert cas_b_contredit("", "sans_plainte")                      # raison vide : rien ne prouve l'absence de plainte
+    assert not cas_b_contredit('"horrible" The customer hates it.', "plainte")    # seul le cas B est contrôlé
+
+
+def test_message_correction_cite_la_raison_et_interdit_le_cas_b():
+    m = message_correction('"I do not like this paste" The customer dislikes it.\nsecond line')
+    assert '"I do not like this paste"' in m and "second line" not in m
+    assert "case B is not allowed" in m and '"plainte"' in m
+
+
+def test_messages_de_relance_etendue_securite_et_condition():
+    avis = "Prunes. Lots of shards of pits in the second bag."
+    rep = "Since this was your first purchase of this product, we can offer a credit [P17]."
+    motifs = [m for m, _ in messages_de_relance('"shards of pits" ...', "plainte", rep, "geste_commercial", avis, True)]
+    assert motifs == ["securite", "condition"]
+    texte = texte_de_relance(messages_de_relance('"shards of pits"', "plainte", rep, "geste_commercial", avis, True))
+    assert '"shards"' in texte and "if this was your first purchase" in texte and "Fill all the fields again" in texte
+    # sans etendue (rag_v5c) : seul le cas B relance ; déjà escaladé : pas de relance sécurité
+    assert messages_de_relance('"shards"', "plainte", rep, "geste_commercial", avis, False) == []
+    assert messages_de_relance('"shards"', "securite", "Please do not eat it.", "escalade_securite", avis, True) == []
+
+
+def test_messages_de_relance_cas_b_en_premier_et_un_seul_appel_a_l_action():
+    relances = messages_de_relance('"I got sick"', "sans_plainte", "Thanks!", "aucune", "It made me sick.", True)
+    assert [m for m, _ in relances] == ["cas_b", "securite"]
+    assert texte_de_relance(relances).count("Fill all the fields again") == 1
 
 
 # ---------- mesure de la recherche ----------

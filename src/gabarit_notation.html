@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notation des réponses</title>
+<style>
+  :root { --fond: #fafaf7; --carte: #ffffff; --texte: #1f2328; --doux: #59636e; --bord: #d8dee4;
+          --oui: #1a7f37; --non: #cf222e; --accent: #0969da; --surligne: #fff8c5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fond: #0d1117; --carte: #161b22; --texte: #e6edf3; --doux: #9198a1; --bord: #30363d;
+            --oui: #3fb950; --non: #f85149; --accent: #4493f8; --surligne: #3b2f00; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fond); color: var(--texte); font: 15px/1.5 system-ui, sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; background: var(--carte); border-bottom: 1px solid var(--bord);
+           padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  header h1 { font-size: 16px; margin: 0 12px 0 0; }
+  main { max-width: 980px; margin: 0 auto; padding: 16px; }
+  button { font: inherit; padding: 6px 12px; border: 1px solid var(--bord); border-radius: 6px;
+           background: var(--carte); color: var(--texte); cursor: pointer; }
+  button.principal { background: var(--accent); color: #fff; border-color: var(--accent); }
+  details { background: var(--carte); border: 1px solid var(--bord); border-radius: 8px; padding: 8px 14px; margin-bottom: 14px; }
+  summary { cursor: pointer; font-weight: 600; }
+  .carte { background: var(--carte); border: 1px solid var(--bord); border-radius: 8px; padding: 14px 16px; margin-bottom: 18px; }
+  .carte.complete { border-left: 4px solid var(--oui); }
+  .meta { color: var(--doux); font-size: 13px; }
+  .bloc { white-space: pre-wrap; border-left: 3px solid var(--bord); padding: 4px 10px; margin: 6px 0 10px; }
+  .reponse { border-left-color: var(--accent); }
+  .passage { font-size: 13px; color: var(--doux); }
+  .crit { display: grid; grid-template-columns: 150px auto; gap: 6px 12px; align-items: center; margin-top: 10px; }
+  .crit label { margin-right: 14px; white-space: nowrap; }
+  input[type=radio] { transform: scale(1.15); margin-right: 4px; }
+  textarea { width: 100%; font: inherit; padding: 6px; border: 1px solid var(--bord); border-radius: 6px;
+             background: var(--fond); color: var(--texte); margin-top: 8px; }
+  #filtre { padding: 5px 8px; border: 1px solid var(--bord); border-radius: 6px; background: var(--fond); color: var(--texte); }
+  .guide h3 { margin: 14px 0 4px; font-size: 15px; }
+  .guide ul { margin: 4px 0; padding-left: 20px; }
+  mark { background: var(--surligne); color: inherit; }
+  @media (max-width: 600px) { .crit { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Notation des réponses · __PART__</h1>
+  <span id="compteur"></span>
+  <button class="principal" id="telecharger">Télécharger notes_martin___PART__.jsonl</button>
+  <button id="effacer">Tout effacer</button>
+</header>
+<main>
+<details class="guide" open>
+  <summary>Guide de notation (grille juge_v1, 23 oct. 2026)</summary>
+  <p>Pour chaque réponse, trois questions <b>oui / non</b>. Un seul manquement suffit pour mettre <b>non</b>.
+  Une réponse est <b>acceptable</b> si elle a 3 oui. Note avec l'avis, la réponse et la politique seulement ;
+  la raison, le cas et les signaux du générateur sont cachés exprès. Note toutes les réponses <b>avant</b> de lancer le juge.</p>
+  <h3>1. Action conforme : le cas et l'action sont ceux que prévoit la politique</h3>
+  <ul>
+    <li><b>A. Sécurité</b> (corps étranger, éclats, noyaux, cailloux, verre, plastique, métal, malaise, allergie,
+      allergène non déclaré, moisissure, insectes, boîte gonflée ou qui fuit) → <code>escalade_securite</code> :
+      ne pas manger, garder le produit, aucun avoir ni remplacement, jamais « safe ».</li>
+    <li><b>B. Sans plainte</b> : rien de négatif du tout → <code>aucune</code>, un merci. Un goût, une odeur, une texture
+      qui déplaît, une préférence pour une autre version, un prix jugé trop élevé <b>sont des plaintes</b> (cas C).</li>
+    <li><b>C. Sinon</b> : l'action que prévoit le passage qui s'applique (remboursement, remplacement, geste_commercial,
+      escalade si aucun passage ne couvre le problème). Rance, rassis, périmé, produit froid arrivé chaud : cas C, pas A.</li>
+    <li><b>Non</b> si : plainte traitée comme sans plainte, <b>même quand <code>aucune</code> est la bonne action</b>
+      (un prix jugé trop élevé doit être expliqué) ; goût déplu sans garantie goût ; risque non escaladé ;
+      remboursement là où la politique prévoit un avoir, ou l'inverse ; action qu'aucune règle ne prévoit.</li>
+    <li>Plusieurs actions défendables (ex. P18) : <b>oui</b> si le texte suit le passage.</li>
+  </ul>
+  <h3>2. Fondée : chaque engagement est dans un passage, et cité</h3>
+  <ul>
+    <li><b>Oui</b> si chaque montant, délai, remède ou condition est écrit dans un passage, porte son <code>[Pxx]</code>,
+      et les conditions invérifiables sont au conditionnel (« if this was your first purchase »).
+      Une réponse sans engagement (merci, escalade) est fondée.</li>
+    <li><b>Non</b> si : condition supposée remplie (« since this is your first purchase ») ; <b>condition du passage
+      omise</b> dans une promesse (photo, n° de commande, 30 jours, premier achat) ; alternative non prévue
+      (« or a refund instead » face à un avoir) ; délai ou montant absent du passage, non cité, ou <b>plus court</b>
+      que la politique ; produit dit sans danger ou dangereux ; code de réduction, avis médical, aveu de responsabilité.</li>
+    <li><b>Admis sans citation</b> : cas A, « our quality and safety team will contact you » <b>sans délai</b>
+      (« within 24 hours » doit être cité : P27-P30, P32 ; P26 ne le dit pas) ; escalade, « a team member will
+      follow up within 1 business day ».</li>
+  </ul>
+  <h3>3. Ton : la réponse parle du problème précis du client</h3>
+  <ul>
+    <li><b>Oui</b> si elle reprend le problème précis, s'excuse une fois s'il y a un problème, reste simple et polie.</li>
+    <li><b>Non</b> si : réponse générique ; enthousiasme face à une plainte (« we're glad you enjoy it ») ; ton sec ou
+      défensif, faute rejetée sur le client, le transporteur ou le fabricant ; jargon interne (« case C », identifiant
+      de passage utilisé comme un mot) ; reprise de détails personnels ou de santé.</li>
+    <li>La <b>longueur</b> n'est pas un critère.</li>
+  </ul>
+  <h3>Règles de chevauchement</h3>
+  <ul>
+    <li>Une condition supposée remplie relève de <b>fondée</b>. Si l'action est fausse aussi, les deux sont à non.</li>
+    <li>Si tu changes d'avis sur une définition en cours de route, renote les réponses déjà faites.</li>
+    <li>Le commentaire est facultatif mais précieux : une phrase sur ce qui est faux servira à lire les désaccords avec le juge.</li>
+  </ul>
+</details>
+
+<details class="guide">
+  <summary>Repères de la politique : problème → passage → action</summary>
+  <h3>Cas A, sécurité (escalade_securite)</h3>
+  <ul>
+    <li>Corps étranger, noyaux, éclats → <b>P28</b> : arrêter, garder l'objet et l'emballage, remboursement, 24 h.</li>
+    <li>Insectes, larves → <b>P27</b> : sac fermé, remboursement, 24 h. Moisissure → <b>P26</b> : remboursement même après 30 jours, pas de délai de 24 h.</li>
+    <li>Malaise, blessure, allergie → <b>P29</b> : consulter si sérieux, pas de discussion des symptômes, 24 h. Allergène non déclaré → <b>P30</b>. Boîte gonflée, joint cassé → <b>P32</b>.</li>
+  </ul>
+  <h3>Cas C, réception</h3>
+  <ul>
+    <li>Cassé, écrasé, fuite (même carton intact) → <b>P08</b> : remboursement ou remplacement au choix ; n° de commande, photo du produit et du carton, 30 jours ; remplacement sous 2 jours ouvrés. Bosse sans ouverture → aucune.</li>
+    <li>Carton abîmé, produit intact → <b>P14</b> : aucune. Carton trop grand → <b>P15</b> : aucune, merci. Fondu → <b>P09</b> : remboursement ou remplacement, photo, 30 jours.</li>
+    <li>Manquant → <b>P10</b> ; retard → <b>P11</b> (frais de port si plus de 3 jours ouvrés) ; perdu → <b>P12</b> ; livré non reçu → <b>P13</b> (48 h) ; froid arrivé chaud → <b>P16</b> : remboursement.</li>
+  </ul>
+  <h3>Cas C, goût</h3>
+  <ul>
+    <li>N'aime pas le goût, l'odeur, la texture → <b>P17</b> : geste_commercial, <i>if this was your first purchase of this product</i>, avoir égal au prix payé <b>jusqu'à 15 $</b>, une fois par produit, sous 30 jours, <b>jamais un remboursement</b>.</li>
+    <li>Différent d'habitude → <b>P18</b> : lot, date, photo ; remboursement ou remplacement si lot défectueux, sinon P17. Recette changée → <b>P19</b> : aucune.</li>
+    <li>Variation naturelle → <b>P20</b> : explication. Café, thé → <b>P21</b>. Trop sucré, salé, épicé → <b>P22</b>. Retour à la marque → <b>P23</b> : jamais promettre un changement de recette.</li>
+  </ul>
+  <h3>Cas C, fraîcheur et non-conformité</h3>
+  <ul>
+    <li>Périmé, date trop courte → <b>P24</b> : remboursement (remplacement au choix), photo de la date, 30 jours. Rassis, rance → <b>P25</b> : remboursement ou remplacement, photo date et lot.</li>
+    <li>Mauvais produit → <b>P33</b> ; quantité ou poids inférieurs → <b>P34</b> ; description trompeuse → <b>P35</b> ; ingrédients → <b>P36</b> ; allégation diététique → <b>P37</b> ; contrefaçon → <b>P38</b> ; substitution → <b>P39</b>.</li>
+  </ul>
+  <h3>Cas C, prix</h3>
+  <ul>
+    <li>Moins cher ailleurs → <b>P40</b> : aucune, pas de code individuel. Hausse de prix → <b>P41</b> : aucune (sauf baisse sous 7 jours). Trop cher, trop d'air → <b>P43</b> : aucune, transmis à la marque. Frais de port → <b>P45</b> : aucune.</li>
+    <li>Coupon non appliqué → <b>P42</b> ; abonnement → <b>P44</b> ; multipack plus cher à l'unité → <b>P46</b> : remboursement.</li>
+  </ul>
+  <h3>Escalade (P07)</h3>
+  <ul><li>Non couvert, 3e réclamation en 6 mois, justice ou journaliste, demande de parler à quelqu'un, commande de plus de 150 $ → escalade, « within 1 business day ».</li></ul>
+</details>
+
+<details>
+  <summary>Politique complète (__NB_PASSAGES__ passages)</summary>
+  <p><input id="filtre" placeholder="Filtrer (mot ou P17)" size="30"></p>
+  <div id="politique"></div>
+</details>
+
+<div id="reponses"></div>
+</main>
+
+<script id="donnees" type="application/json">__DONNEES__</script>
+<script>
+const D = JSON.parse(document.getElementById("donnees").textContent);
+const CLE = "notation_" + D.part + "_" + D.prompt_version;
+const CRITERES = [["action_conforme", "Action conforme"], ["fondee", "Fondée"], ["ton", "Ton"]];
+const parId = Object.fromEntries(D.passages.map(p => [p.id, p]));
+let notes = {};
+try { notes = JSON.parse(localStorage.getItem(CLE) || "{}"); } catch (e) { notes = {}; }
+
+function sauver() { try { localStorage.setItem(CLE, JSON.stringify(notes)); } catch (e) {} majCompteur(); }
+function complete(n) { return n && CRITERES.every(([c]) => typeof n[c] === "boolean"); }
+function majCompteur() {
+  const faites = D.reponses.filter(r => complete(notes[r.review_id])).length;
+  document.getElementById("compteur").textContent = faites + " / " + D.reponses.length + " notées";
+  D.reponses.forEach(r => document.getElementById("c_" + r.review_id)
+    .classList.toggle("complete", complete(notes[r.review_id])));
+}
+function el(tag, attrs, texte) {
+  const e = document.createElement(tag);
+  Object.entries(attrs || {}).forEach(([k, v]) => e.setAttribute(k, v));
+  if (texte !== undefined) e.textContent = texte;
+  return e;
+}
+
+const zone = document.getElementById("reponses");
+D.reponses.forEach((r, k) => {
+  const n = notes[r.review_id] || {};
+  const carte = el("div", {class: "carte", id: "c_" + r.review_id});
+  carte.append(el("div", {class: "meta"}, (k + 1) + " / " + D.reponses.length + " · " + r.review_id.slice(-24)
+    + " · note " + r.rating + " étoile(s)"));
+  carte.append(el("h3", {}, r.title));
+  carte.append(el("div", {class: "bloc"}, r.text));
+  carte.append(el("div", {class: "meta"}, "Réponse · action : " + r.action + " · citations : "
+    + (r.citations.join(", ") || "aucune")));
+  carte.append(el("div", {class: "bloc reponse"}, r.reponse));
+  r.citations.forEach(i => {
+    const p = parId[i];
+    carte.append(el("div", {class: "bloc passage"}, p ? "[" + i + "] " + p.titre + " : " + p.texte
+      : "[" + i + "] passage inconnu du corpus"));
+  });
+  const crit = el("div", {class: "crit"});
+  CRITERES.forEach(([c, nom]) => {
+    crit.append(el("b", {}, nom));
+    const choix = el("div");
+    [[true, "oui"], [false, "non"]].forEach(([v, lib]) => {
+      const lab = el("label");
+      const inp = el("input", {type: "radio", name: c + "_" + r.review_id});
+      if (n[c] === v) inp.checked = true;
+      inp.addEventListener("change", () => {
+        notes[r.review_id] = Object.assign(notes[r.review_id] || {}, {[c]: v});
+        sauver();
+      });
+      lab.append(inp, document.createTextNode(lib));
+      choix.append(lab);
+    });
+    crit.append(choix);
+  });
+  carte.append(crit);
+  const com = el("textarea", {rows: "2", placeholder: "Commentaire (facultatif) : ce qui est faux, en une phrase"});
+  com.value = n.commentaire || "";
+  com.addEventListener("input", () => {
+    notes[r.review_id] = Object.assign(notes[r.review_id] || {}, {commentaire: com.value});
+    sauver();
+  });
+  carte.append(com);
+  zone.append(carte);
+});
+
+function afficherPolitique(filtre) {
+  const f = filtre.trim().toLowerCase();
+  const zoneP = document.getElementById("politique");
+  zoneP.replaceChildren();
+  D.passages.filter(p => !f || (p.id + " " + p.titre + " " + p.texte).toLowerCase().includes(f)).forEach(p =>
+    zoneP.append(el("div", {class: "bloc passage"}, "[" + p.id + "] " + p.titre + " (" + p.motifs.join(", ") + ") : " + p.texte)));
+}
+document.getElementById("filtre").addEventListener("input", e => afficherPolitique(e.target.value));
+afficherPolitique("");
+
+document.getElementById("telecharger").addEventListener("click", () => {
+  const faites = D.reponses.filter(r => complete(notes[r.review_id]));
+  const manquantes = D.reponses.length - faites.length;
+  if (manquantes && !confirm(manquantes + " réponse(s) incomplète(s) ne seront pas exportées. Continuer ?")) return;
+  const lignes = faites.map(r => {
+    const n = notes[r.review_id];
+    return JSON.stringify({review_id: r.review_id, mode: D.mode, prompt_version: D.prompt_version,
+      action_conforme: n.action_conforme, fondee: n.fondee, ton: n.ton, commentaire: (n.commentaire || "").trim()});
+  });
+  const blob = new Blob([lignes.join("\n") + "\n"], {type: "application/json"});
+  const a = el("a", {href: URL.createObjectURL(blob), download: "notes_martin_" + D.part + ".jsonl"});
+  document.body.append(a); a.click(); a.remove();
+});
+document.getElementById("effacer").addEventListener("click", () => {
+  if (!confirm("Effacer toutes les notes enregistrées dans ce navigateur ?")) return;
+  notes = {}; sauver(); location.reload();
+});
+majCompteur();
+</script>
+</body>
+</html>

@@ -39,15 +39,18 @@ PRIX_EMBED = 0.10         # $ par million de tokens (fiche du modèle, 22 oct. 2
 TAILLE_LOT = 32           # textes par requête d'embeddings (aucune limite documentée)
 PAUSE_EMBED_S = 1.1
 K = 8                     # rappel@8 sans filtre 0,885 sur 26 avis de rag_dev (23 oct. 2026), contre 0,769 à k = 5
+PAUSE_PLEIN_S = 23.0      # mode plein : ~7 600 tokens par appel ; à 20 000 tokens/min -> 23 s entre deux appels
 N_DEV, N_EVAL = 50, 150
 SEED = 42
 MARQUE = "Larder Lane"    # marque fictive : à changer si tu préfères un autre nom
-PROMPT_RAG = "rag_v4"      # v4 (23 oct. 2026) : cas B restreint (v3 : raison et cas avant la réponse ; v2 : règles)
+PROMPT_RAG = "rag_v5"      # v5 (23 oct. 2026) : cas B prouvé par une citation, malaise = cas A, bon passage ;
+                           # v4 : cas B restreint ; v3 : raison et cas avant la réponse ; v2 : règles
 SANS_PROMESSE = ("escalade", "escalade_securite", "aucune")   # actions qui ne promettent rien : citation facultative
 MOTIFS_PASSAGE = set(MOTIFS) - {"autre"} | {"general"}
 # Une citation = un ou plusieurs identifiants entre crochets : [P07], ou [P07, P12] que le modèle écrit parfois.
 CITATION = re.compile(r"\[(P\d+(?:\s*[,;]\s*P\d+)*)\]")
 ACTION_DU_CAS = {"securite": "escalade_securite", "sans_plainte": "aucune"}   # « plainte » : selon les passages
+PAS_DE_PLAINTE = "no negative phrase"   # début de raison imposé par rag_v5 quand l'avis n'a rien de négatif
 
 # Phrases à signaler au relecteur humain (cas vus sur rag_dev le 23 oct. 2026)
 CONDITION_SUPPOSEE = re.compile(r"\b(since|as|because)\s+(this|it)\s+(is|was)\s+your\s+first\b|first-time buyer",
@@ -258,6 +261,66 @@ def signaux_redaction(reponse, action, cas, avis=""):
     return signaux
 
 
+# ---------- Relance corrective (rag_v5 et suivants) ----------
+
+def cas_b_contredit(raison, cas):
+    """Vrai si le cas B est choisi alors que la raison ne commence pas par « no negative phrase ».
+
+    Avec rag_v5, la raison commence par la phrase la plus négative de l'avis, citée, ou par « no negative phrase ».
+    Mesuré le 23 oct. sur 50 avis : 22 des 26 cas B citaient une phrase négative. La règle passe donc du prompt
+    au code. Guillemets, majuscules et espaces en tête sont ignorés.
+    """
+    debut = (raison or "").strip().strip('"“”\'').strip().lower()
+    return cas == "sans_plainte" and not debut.startswith(PAS_DE_PLAINTE)
+
+
+def message_correction(raison):
+    """Message ajouté à la conversation pour la relance : il cite la raison et interdit le cas B."""
+    citation = (raison or "").strip().splitlines()[0][:300] if raison else ""
+    return ("Your raison quotes a negative phrase from the review: " + citation + "\n"
+            "A review with a negative phrase is a complaint, so case B is not allowed. Fill all the fields again: "
+            "keep the quote at the start of raison, set cas to \"plainte\" (or \"securite\" if case A applies), and "
+            "write the reply and the action that the policy passages give for this complaint.")
+
+
+SUFFIXE_CORRECTION = {"b": "c", "tout": "d"}   # rag_v5c : cas B seulement ; rag_v5d : cas B, sécurité, condition
+
+
+def messages_de_relance(raison, cas, reponse, action, avis, etendue):
+    """[(motif, message)] des règles en code qui déclenchent la relance ; liste vide = pas de relance.
+
+    "cas_b" (toujours) : cas_b_contredit. Avec etendue (rag_v5d, 23 oct.), en plus :
+      "securite"  : un mot de sécurité dans l'avis et une action autre qu'escalade_securite. Le message demande de
+                    revérifier le cas A sans l'imposer : le détecteur se trompe parfois (« I did not get sick ») ;
+      "condition" : une condition invérifiable écrite comme remplie (« since this was your first purchase »).
+    """
+    relances = []
+    if cas_b_contredit(raison, cas):
+        relances.append(("cas_b", message_correction(raison)))
+    if etendue:
+        mot = MOTS_SECURITE.search(avis or "")
+        if mot and action != "escalade_securite":
+            relances.append(("securite", f'The review mentions "{mot.group(0)}". Check case A again: if the review '
+                             "describes a foreign object or hard pieces, illness or any symptom after eating, mould, "
+                             'insects or a faulty seal, set cas to "securite" and action to "escalade_securite". '
+                             'If the word is used in another sense (for example "I did not get sick"), keep your '
+                             "case."))
+        condition = CONDITION_SUPPOSEE.search(reponse or "")
+        if condition:
+            relances.append(("condition", f'Your reply writes a condition you cannot check as if it were met '
+                             f'("{condition.group(0)}"). Write it as a condition: "if this was your first purchase '
+                             'of this product".'))
+    return relances
+
+
+def texte_de_relance(relances):
+    """Les messages réunis en un seul tour ; « Fill all the fields again » est déjà dans le message du cas B."""
+    texte = "\n\n".join(m for _, m in relances)
+    if all(motif != "cas_b" for motif, _ in relances):
+        texte += "\n\nFill all the fields again, and keep what was already right."
+    return texte
+
+
 # ---------- Mesure de la recherche ----------
 
 def rappel_a_k(classements, pertinents, k):
@@ -444,15 +507,23 @@ def cmd_eval_recherche(part, k_max=10):
             print(f"  raté à k={K} : {rid[-24:]}  pertinents {p}  trouvés {top}")
 
 
-def cmd_repondre(part, mode, k, limit, filtre):
+def appeler_generateur(client, messages):
+    return call_with_retry(lambda: client.chat.parse(
+        model=MODEL, response_format=ReponseClient, temperature=0, max_tokens=500, random_seed=42, messages=messages))
+
+
+def cmd_repondre(part, mode, k, limit, filtre, prompt=PROMPT_RAG, correction=None, pause_s=None):
+    """correction : None (pas de relance), "b" (cas B contredit, version <prompt>c) ou "tout" (cas B, sécurité,
+    condition supposée, version <prompt>d). Une seule relance au plus, avec tous les messages déclenchés."""
     client = client_mistral()
     passages = charger_corpus()
     par_id = {p["id"]: p for p in passages}
-    system_prompt = load_prompt(PROMPT_RAG).replace("{marque}", MARQUE)
+    system_prompt = load_prompt(prompt).replace("{marque}", MARQUE)
+    version = prompt + SUFFIXE_CORRECTION[correction] if correction else prompt
     df = charger_part(part)
     if limit:
         df = df.head(limit)
-    out = DOSSIER / f"reponses_{part}_{mode}_{PROMPT_RAG}.jsonl"
+    out = DOSSIER / f"reponses_{part}_{mode}_{version}.jsonl"
     faits = set()
     if out.exists():
         faits = {r["review_id"] for r in map(json.loads, out.open(encoding="utf-8")) if "error" not in r}
@@ -472,20 +543,34 @@ def cmd_repondre(part, mode, k, limit, filtre):
             else:
                 fournis = passages
             messages = construire_messages(system_prompt, fournis, row["title"], row["text"])
+            avis = f"{row['title']} {row['text']}"
             ligne = {"review_id": row["review_id"], "mode": mode, "k": k if mode == "rag" else None,
-                     "filtre": filtre if mode == "rag" else None, "prompt_version": PROMPT_RAG,
+                     "filtre": filtre if mode == "rag" else None, "prompt_version": version,
                      "passages": [p["id"] for p in fournis] if mode == "rag" else "tous"}
             try:
                 t0 = time.perf_counter()
-                rep, essais = call_with_retry(lambda: client.chat.parse(
-                    model=MODEL, response_format=ReponseClient, temperature=0, max_tokens=500, random_seed=42,
-                    messages=messages))
+                rep, essais = appeler_generateur(client, messages)
                 parsed = rep.choices[0].message.parsed
+                entree, sortie = rep.usage.prompt_tokens, rep.usage.completion_tokens
+                relances = (messages_de_relance(parsed.raison, parsed.cas, parsed.reponse, parsed.action, avis,
+                                                correction == "tout") if correction and parsed else [])
+                if relances:
+                    suite = messages + [{"role": "assistant", "content": parsed.model_dump_json()},
+                                        {"role": "user", "content": texte_de_relance(relances)}]
+                    rep2, essais2 = appeler_generateur(client, suite)
+                    essais += essais2
+                    entree, sortie = entree + rep2.usage.prompt_tokens, sortie + rep2.usage.completion_tokens
+                    if rep2.choices[0].message.parsed:   # la première version est gardée pour l'analyse
+                        ligne["avant_correction"] = {"raison": parsed.raison, "cas": parsed.cas,
+                                                     "action": parsed.action,
+                                                     "relances": [motif for motif, _ in relances]}
+                        rep, parsed = rep2, rep2.choices[0].message.parsed
                 if parsed:
                     problemes = (verifier_citations(parsed.reponse, parsed.citations, parsed.action,
                                                     [p["id"] for p in fournis])
-                                 + signaux_redaction(parsed.reponse, parsed.action, parsed.cas,
-                                                     f"{row['title']} {row['text']}"))
+                                 + signaux_redaction(parsed.reponse, parsed.action, parsed.cas, avis))
+                    if correction and cas_b_contredit(parsed.raison, parsed.cas):
+                        problemes.append("cas_b_contredit")   # même après relance : un humain tranche
                 else:
                     problemes = ["reponse_vide"]
                 ligne.update({
@@ -496,7 +581,7 @@ def cmd_repondre(part, mode, k, limit, filtre):
                     "citations": parsed.citations if parsed else [],
                     "action": parsed.action if parsed else None,
                     "problems": problemes,
-                    "prompt_tokens": rep.usage.prompt_tokens, "completion_tokens": rep.usage.completion_tokens,
+                    "prompt_tokens": entree, "completion_tokens": sortie,
                     "latency_s": round(time.perf_counter() - t0, 3), "attempts": essais})
             except Exception as e:
                 ligne["error"] = repr(e)[:300]
@@ -504,13 +589,13 @@ def cmd_repondre(part, mode, k, limit, filtre):
             f.flush()
             print(f"  {row['review_id'][-24:]} : {ligne.get('cas', '')} -> {ligne.get('action', 'ERREUR')} "
                   f"{ligne.get('problems', '')}")
-            time.sleep(PAUSE_S)
+            time.sleep(pause_s if pause_s is not None else PAUSE_S if mode == "rag" else PAUSE_PLEIN_S)
     print("Écrit :", out)
 
 
-def cmd_montrer(part, mode):
+def cmd_montrer(part, mode, prompt=PROMPT_RAG):
     df = charger_part(part).set_index("review_id")
-    chemin = DOSSIER / f"reponses_{part}_{mode}_{PROMPT_RAG}.jsonl"
+    chemin = DOSSIER / f"reponses_{part}_{mode}_{prompt}.jsonl"
     for r in map(json.loads, chemin.open(encoding="utf-8")):
         if "error" in r:
             continue
@@ -540,11 +625,19 @@ def main():
     p.add_argument("--mode", choices=["rag", "plein"], default="rag")
     p.add_argument("--k", type=int, default=K)
     p.add_argument("--limit", type=int, default=None)
+    p.add_argument("--prompt", default=PROMPT_RAG, help="version du prompt de génération (ex. rag_v4)")
+    p.add_argument("--correction", dest="correction", action="store_const", const="b",
+                   help="relance si le cas B contredit la raison (rag_v5 et suivants) ; réponses <prompt>c")
+    p.add_argument("--correction-etendue", dest="correction", action="store_const", const="tout",
+                   help="relance aussi sur un mot de sécurité ou une condition supposée ; réponses <prompt>d")
+    p.add_argument("--pause", type=float, default=None,
+                   help=f"secondes entre deux avis (défaut : {PAUSE_S} en mode rag, {PAUSE_PLEIN_S} en mode plein)")
     p.add_argument("--filtre", action="store_true",
                    help="filtrer par motif prédit (désactivé par défaut : il excluait des passages de sécurité)")
     p = sous.add_parser("montrer")
     p.add_argument("--part", default="rag_dev")
     p.add_argument("--mode", choices=["rag", "plein"], default="rag")
+    p.add_argument("--prompt", default=PROMPT_RAG)
     args = parser.parse_args()
 
     if args.commande == "index":
@@ -558,9 +651,9 @@ def main():
     elif args.commande == "eval-recherche":
         cmd_eval_recherche(args.part)
     elif args.commande == "repondre":
-        cmd_repondre(args.part, args.mode, args.k, args.limit, args.filtre)
+        cmd_repondre(args.part, args.mode, args.k, args.limit, args.filtre, args.prompt, args.correction, args.pause)
     elif args.commande == "montrer":
-        cmd_montrer(args.part, args.mode)
+        cmd_montrer(args.part, args.mode, args.prompt)
 
 
 if __name__ == "__main__":
