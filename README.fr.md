@@ -4,7 +4,8 @@
 
 Trier automatiquement les avis clients négatifs par motif d'insatisfaction, pour les envoyer à la bonne équipe.
 Trois approches comparées sur la qualité, le coût et la latence : TF-IDF + régression logistique, DistilBERT fine-tuné,
-LLM Mistral par API. Puis une recommandation chiffrée.
+LLM Mistral par API. Puis une recommandation chiffrée. Partie 2 : un RAG qui rédige une réponse à chaque avis,
+fondée sur une politique client, évaluée avec un LLM-juge calibré ([plus bas](#partie-2--rédiger-les-réponses-avec-un-rag)).
 
 Données : Amazon Reviews 2023 (McAuley Lab), catégorie Grocery_and_Gourmet_Food, avis en anglais notés 1 à 3
 (Y. Hou, J. Li, Z. He, A. Yan, X. Chen et J. McAuley (2024), « Bridging Language and Items for Retrieval and
@@ -130,6 +131,96 @@ essayés : traitement par lots (annoncé à −50 %), sortie plus courte.
 - Les modèles internes apprennent les **conventions et les erreurs du LLM** qui les a étiquetés.
 - Latence de DistilBERT mesurée sur GPU ; coût d'hébergement des modèles internes non chiffré.
 
+## Partie 2 : rédiger les réponses avec un RAG
+
+Pour un avis négatif, rédiger un brouillon de réponse pour le service client, fondé sur la politique client de la
+boutique, avec l'action à mener (remboursement, remplacement, geste commercial, escalade sécurité, escalade, aucune).
+Le brouillon est fait pour être relu par une personne avant l'envoi.
+
+**Corpus** : politique client d'une épicerie en ligne fictive, 46 passages de 105 à 157 mots avec des règles chiffrées
+(30 jours pour réclamer, remboursement sous 5 jours ouvrés, équipe sécurité sous 24 h...), premier jet généré par un
+LLM puis relu à la main : [`corpus/politique_client.jsonl`](corpus/politique_client.jsonl). La politique est fictive
+parce qu'Amazon Reviews 2023 ne contient ni politique ni réponse des vendeurs.
+
+**Chaîne**, écrite à la main sans framework ([`src/rag.py`](src/rag.py)) :
+
+1. **Recherche** : l'avis est transformé en vecteur par `mistral-embed` ; recherche exacte par cosinus sur les 46
+   passages (numpy, vecteurs normalisés) ; les 8 passages les plus proches entrent dans le prompt.
+2. **Génération** : `mistral-small-2603`, prompt `rag_v5`, température 0, sortie structurée. Le modèle écrit d'abord
+   la phrase la plus négative de l'avis, entre guillemets, et le cas (sécurité, sans plainte, plainte), puis la
+   réponse, ses citations (`[P12]`) et l'action. Choisir le cas avant de rédiger a réglé l'erreur de sécurité vue avec
+   les premiers prompts (des éclats de noyaux traités comme un problème de goût).
+3. **Contrôles en code**, sans appel supplémentaire : passages cités existants, fournis et présents dans le texte ;
+   cas cohérent avec l'action ; condition supposée remplie (« since this was your first purchase ») ; mots de sécurité
+   dans l'avis sans escalade sécurité.
+4. **Relance corrective** (version `rag_v5d`) : si le cas contredit la phrase citée, ou si un mot de sécurité ou une
+   condition supposée est détecté, une seule relance avec la première réponse et un message qui nomme le problème. Ce
+   qui reste est signalé au relecteur, pas corrigé.
+
+**Jeux d'évaluation** : tirés une fois de la réserve, sans aucun avis commun avec le test de 300 avis : `rag_dev`
+(50 avis, pour la mise au point) et `rag_eval` (150 avis, gelé ; les 50 premiers sont utilisés).
+
+| Étape | Ce qui est mesuré | Résultat |
+| --- | --- | --- |
+| Recherche | rappel@8 (au moins un passage pertinent dans les 8 premiers), 26 avis de `rag_dev` aux passages pertinents annotés à la main | 0,885 (rappel@5 : 0,769 [0,615 ; 0,923]) |
+| Notes humaines | 20 réponses du prompt v4, 3 critères oui / non : action conforme, fondée, ton | 2 acceptables sur 20 |
+| LLM-juge | `mistral-large-2512` contre les 20 notes humaines, critère par critère | validé sur l'action conforme seulement (κ = 0,79) |
+| Générateur | action conforme selon le juge, v4 → v5d, 50 avis de `rag_dev`, apparié | 0,40 → **0,74**, +0,34 [+0,18 ; +0,50] |
+| RAG contre toute la politique | action conforme, 50 avis de `rag_eval`, apparié | 0,68 contre 0,78, écart non démontré |
+
+### Ce que l'évaluation a appris
+
+**Une recherche sans filtre.** Limiter la recherche aux passages des motifs prédits par le classifieur de la partie 1
+excluait le bon passage chaque fois que le classifieur se trompait, dont un passage de sécurité. Retenu : k = 8,
+sans filtre (8 passages au lieu de 5 coûtent ~0,00007 $ de plus par réponse).
+
+**On ne fait confiance au juge que là où il a été vérifié.** Les 20 notes humaines sont venues d'abord. La règle
+d'acceptation a été fixée avant de lancer le moindre juge : pour chaque critère, rappel des fautes ≥ 0,80, précision
+≥ 0,67, κ ≥ 0,40 (sur le ton, 14 réponses sur 20 étaient fautives : un juge qui dit « fautive » à tout gardait une
+précision de 0,70 ; le κ l'écarte). Trois juges essayés (Large 3 avec deux versions du prompt, puis la préversion de
+Large 4) : aucun ne passe les trois critères. Sur le ton, les juges notent la politesse plutôt que le fait de
+répondre au problème précis. Retenu : Large 3 avec le prompt de juge v2, **pour l'action conforme seulement** ;
+fondée et ton ne sont couverts que par les 20 notes humaines et les contrôles en code.
+
+**Une règle que le modèle n'applique pas passe dans le code.** Avec le prompt v4, 8 des 10 réponses classées « sans
+plainte » répondaient à de vraies plaintes (goût, odeur, date dépassée, taille). Le prompt v5, avec une définition
+plus stricte, n'a rien changé (0,38 contre 0,40) : dans 22 cas sur 26, le modèle citait une phrase négative et
+choisissait quand même « sans plainte ». Une relance déclenchée par le code a réglé le problème : 0,70 (v5c, relance
+sur ce cas seulement), puis 0,74 (v5d, aussi sur les mots de sécurité et les conditions supposées) ; 20 avis gagnés
+contre 3. La règle d'adoption a été corrigée après la mesure, à découvert (escalades de sécurité comptées dans les
+deux sens), et la correction est consignée dans [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md). Erreur connue qui
+reste : un avis qui mentionne des éclats de noyaux, escaladé par v4, reçoit un avoir avec v5d (réponse signalée au
+relecteur).
+
+**RAG ou toute la politique dans le prompt ?** Même générateur (`rag_v5d`), mêmes 50 avis de `rag_eval` :
+
+| | RAG (8 passages) | Toute la politique (46 passages) |
+| --- | --- | --- |
+| Action conforme (juge) | 0,68 | 0,78 |
+| Écart apparié, toute la politique − RAG | | +0,10 [−0,02 ; +0,22] ; 8 avis gagnés contre 3, test du signe p = 0,23 |
+| Réponses signalées par les contrôles en code | 22 % | 8 % |
+| Tokens d'entrée / de sortie par réponse | 3 553 / 182 | 10 795 / 183 |
+| Latence médiane | 1,55 s | 1,89 s |
+
+À 46 passages, mettre toute la politique dans le prompt fait au moins aussi bien, plus simplement (pas d'index, pas
+de passage raté, pas de citation hors des passages fournis), et avec le cache du prompt le coût par réponse est voisin
+(~0,0005 $, estimé, non vérifié sur la facture). Le service garde pourtant le RAG, avec le mode « toute la politique »
+en option : l'écart n'est pas démontré, le RAG envoie 3 fois moins de tokens (~2,7 fois moins cher sans cache), répond
+plus vite, et son coût ne grandit pas avec le corpus. Le RAG devient nécessaire quand le corpus ne tient plus dans le
+contexte (~1 500 passages de cette taille) ou quand les droits d'accès diffèrent d'un document à l'autre.
+
+### Limites de la partie 2
+
+- Politique fictive, courte et cohérente ; une vraie politique est plus longue et se contredit.
+- **Un seul noteur, 20 réponses** ; le prompt du juge a été réglé sur ces mêmes 20 réponses (biais du gagnant), et sa
+  validité sur l'action est supposée se transférer des réponses v4 aux réponses v5d.
+- **50 avis par comparaison** : les intervalles font environ ± 0,15.
+- Recherche mesurée sur 26 avis de `rag_dev` seulement, pas remesurée sur `rag_eval`.
+- Fondée et ton de la version finale ne sont pas mesurés par un juge validé ; 22 % des réponses du RAG sont signalées
+  par les contrôles en code. Les réponses sont des brouillons à faire relire par une personne.
+
+Suite : une API (FastAPI), une image Docker et une démo Streamlit.
+
 ## Reproduire
 
 Installation (Windows) :
@@ -160,6 +251,22 @@ python -m src.metrics eval data/labels_test_v4.jsonl --contre data/preds_test_di
 python livrable/slide.py                                    # slides de synthèse (anglais et français, PNG et PDF)
 ```
 
+Partie 2 (RAG) :
+
+```
+python -m src.rag index                                     # vecteurs de la politique -> data/rag/index.npy
+python -m src.rag jeux                                      # tirage de rag_dev (50) et rag_eval (150) dans la réserve
+python -m src.rag annoter --part rag_dev                    # passages pertinents, annotés à la main
+python -m src.rag eval-recherche --part rag_dev             # rappel@k et MRR
+python -m src.rag repondre --part rag_dev --prompt rag_v5 --correction-etendue   # réponses (rag_v5d)
+python -m src.juge page --part rag_dev                      # page HTML pour noter les réponses à la main
+python -m src.juge juger --part rag_dev --prompt rag_v4     # LLM-juge sur les réponses
+python -m src.juge calibrer --part rag_dev                  # juge contre les notes humaines, critère par critère
+python -m src.juge bilan --part rag_dev --prompt rag_v5d --contre rag_v4   # comparaison appariée de deux versions
+python -m src.rag repondre --part rag_eval --mode plein --prompt rag_v5 --correction-etendue --limit 50
+python -m src.juge comparer --prompt rag_v5d                # RAG contre toute la politique sur rag_eval
+```
+
 ## Organisation
 
 | Chemin | Contenu |
@@ -172,8 +279,11 @@ python livrable/slide.py                                    # slides de synthès
 | `src/tfidf_lr.py` | TF-IDF + régression logistique : grille, mesure finale, explication des prédictions |
 | `src/distilbert.py` | DistilBERT : grille avec reprise, mesure finale, comparaison avec TF-IDF |
 | `notebooks/distilbert_colab.ipynb` | lancement de DistilBERT sur Colab |
-| `prompts/` | prompts versionnés v1 à v4 |
-| `tests/` | 67 tests (`python -m pytest -q`) |
+| `src/rag.py` | RAG : index, recherche, rédaction, contrôles en code, relance corrective, rappel@k |
+| `src/juge.py`, `src/gabarit_notation.html` | LLM-juge : page de notation, jugement, calibration, comparaisons appariées |
+| `corpus/politique_client.jsonl` | politique client fictive (46 passages) |
+| `prompts/` | prompts versionnés : classement v1 à v4, réponses `rag_v1` à `rag_v5`, juge `juge_v1` et `juge_v2` |
+| `tests/` | 114 tests (`python -m pytest -q`) |
 | `docs/CONVENTIONS.md` | toutes les décisions et tous les chiffres, datés |
 | `docs/guide_annotation.md` | guide d'annotation (v1, gelé) |
 | `livrable/` | slides de synthèse : `slide.py` produit `synthese.png` / `.pdf` (anglais) et `synthese_fr.png` / `.pdf` (français) |
