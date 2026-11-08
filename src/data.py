@@ -19,7 +19,7 @@ PARTS = {"explo": 200, "test": 300, "train": 5000}   # le reste -> "reserve"
 
 
 def stream_reviews(n_read):
-    """Lit les n_read premiers avis du fichier, en streaming (fourni, rien à coder)."""
+    """Lit les n_read premiers avis du fichier, en streaming."""
     from datasets import load_dataset
 
     flux = load_dataset("json", data_files=DATA_FILE, split="train", streaming=True)

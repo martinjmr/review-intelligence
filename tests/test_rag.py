@@ -1,4 +1,4 @@
-"""Tests du jalon 2 : RAG minimal (src/rag.py). Lance-les avec :  python -m pytest -q
+"""Tests du jalon 2 : RAG minimal (src/rag.py). Lancement :  python -m pytest -q
 Sans Internet ni clé : un faux client renvoie des vecteurs calculés à partir du texte.
 Les deux derniers blocs vérifient les vrais fichiers (corpus, tirage des jeux) et sont sautés s'ils sont absents.
 """
@@ -182,7 +182,7 @@ def test_ids_dans_texte_lit_les_deux_formats():
     assert verifier_citations("Credit [P20, P23].", ["P20", "P23"], "geste_commercial", ["P20", "P23"]) == []
 
 
-# Phrases tirées des réponses réelles de rag_dev (23 oct. 2026)
+# Phrases tirées des réponses réelles de rag_dev
 def test_signaux_condition_supposee():
     assert signaux_redaction("Since this is your first purchase of this product, we can offer a credit [P17].",
                              "geste_commercial", "plainte") == ["condition_supposee"]

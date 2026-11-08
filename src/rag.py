@@ -5,7 +5,7 @@ Usage :
   python -m src.rag index                                # embeddings du corpus (refaits seulement si le corpus change)
   python -m src.rag jeux                                 # tire rag_dev (50) et rag_eval (150) de la réserve, une fois
   python -m src.rag classer --part rag_dev               # motifs prédits par mistral-small, prompt v4
-  python -m src.rag annoter --part rag_dev --n 30        # tes passages pertinents, AVANT toute recherche
+  python -m src.rag annoter --part rag_dev --n 30        # passages pertinents annotés à la main, AVANT toute recherche
   python -m src.rag eval-recherche --part rag_dev        # rappel@k et MRR, avec et sans filtre par motif
   python -m src.rag repondre --part rag_dev --mode rag --limit 5
   python -m src.rag montrer --part rag_dev --mode rag    # relire les réponses
@@ -38,12 +38,12 @@ EMBED_MODEL = "mistral-embed"
 PRIX_EMBED = 0.10         # $ par million de tokens (fiche du modèle, 22 oct. 2026)
 TAILLE_LOT = 32           # textes par requête d'embeddings (aucune limite documentée)
 PAUSE_EMBED_S = 1.1
-K = 8                     # rappel@8 sans filtre 0,885 sur 26 avis de rag_dev (23 oct. 2026), contre 0,769 à k = 5
+K = 8                     # rappel@8 sans filtre 0,885 sur 26 avis de rag_dev, contre 0,769 à k = 5
 PAUSE_PLEIN_S = 23.0      # mode plein : ~7 600 tokens par appel ; à 20 000 tokens/min -> 23 s entre deux appels
 N_DEV, N_EVAL = 50, 150
 SEED = 42
-MARQUE = "Larder Lane"    # marque fictive : à changer si tu préfères un autre nom
-PROMPT_RAG = "rag_v5"      # v5 (23 oct. 2026) : cas B prouvé par une citation, malaise = cas A, bon passage ;
+MARQUE = "Larder Lane"    # marque fictive
+PROMPT_RAG = "rag_v5"      # v5 : cas B prouvé par une citation, malaise = cas A, bon passage ;
                            # v4 : cas B restreint ; v3 : raison et cas avant la réponse ; v2 : règles
 SANS_PROMESSE = ("escalade", "escalade_securite", "aucune")   # actions qui ne promettent rien : citation facultative
 MOTIFS_PASSAGE = set(MOTIFS) - {"autre"} | {"general"}
@@ -52,7 +52,7 @@ CITATION = re.compile(r"\[(P\d+(?:\s*[,;]\s*P\d+)*)\]")
 ACTION_DU_CAS = {"securite": "escalade_securite", "sans_plainte": "aucune"}   # « plainte » : selon les passages
 PAS_DE_PLAINTE = "no negative phrase"   # début de raison imposé par rag_v5 quand l'avis n'a rien de négatif
 
-# Phrases à signaler au relecteur humain (cas vus sur rag_dev le 23 oct. 2026)
+# Phrases à signaler au relecteur humain (cas vus sur rag_dev)
 CONDITION_SUPPOSEE = re.compile(r"\b(since|as|because)\s+(this|it)\s+(is|was)\s+your\s+first\b|first-time buyer",
                                 re.IGNORECASE)
 ALTERNATIVE = re.compile(r"\b(refund|replacement)\b[^.]*\binstead\b|\bprefer\s+a\s+(refund|replacement)\b",
@@ -60,7 +60,7 @@ ALTERNATIVE = re.compile(r"\b(refund|replacement)\b[^.]*\binstead\b|\bprefer\s+a
 AFFIRME_SECURITE = re.compile(r"\b(is|are)\s+(perfectly\s+|completely\s+)?safe\b|\bsafe\s+to\s+(eat|consume)\b"
                               r"|\bnot\s+affect\s+(the\s+)?safety\b", re.IGNORECASE)
 # Mots de sécurité dans l'AVIS, indépendants du LLM : 3,1 % des 4 979 avis du train, dont 70 % classés
-# fraicheur_securite par v4 (mesuré le 23 oct. 2026) ; les fausses alertes restantes se trient à la relecture.
+# fraicheur_securite par v4 (mesuré sur le train) ; les fausses alertes restantes se trient à la relecture.
 MOTS_SECURITE = re.compile(
     r"\b(shards?|pits?|stones?|(pieces?|bits?|chunks?) of (glass|plastic|metal|bone|wood)|hair|insects?|bugs?|worms?"
     r"|larvae|maggots?|weevils?|moths?|mou?ldy?|sick|illness|vomit\w*|diarrh\w*|allergic|allergy|hospital\w*"
@@ -267,7 +267,7 @@ def cas_b_contredit(raison, cas):
     """Vrai si le cas B est choisi alors que la raison ne commence pas par « no negative phrase ».
 
     Avec rag_v5, la raison commence par la phrase la plus négative de l'avis, citée, ou par « no negative phrase ».
-    Mesuré le 23 oct. sur 50 avis : 22 des 26 cas B citaient une phrase négative. La règle passe donc du prompt
+    Mesuré sur 50 avis de rag_dev : 22 des 26 cas B citaient une phrase négative. La règle passe donc du prompt
     au code. Guillemets, majuscules et espaces en tête sont ignorés.
     """
     debut = (raison or "").strip().strip('"“”\'').strip().lower()
@@ -289,7 +289,7 @@ SUFFIXE_CORRECTION = {"b": "c", "tout": "d"}   # rag_v5c : cas B seulement ; rag
 def messages_de_relance(raison, cas, reponse, action, avis, etendue):
     """[(motif, message)] des règles en code qui déclenchent la relance ; liste vide = pas de relance.
 
-    "cas_b" (toujours) : cas_b_contredit. Avec etendue (rag_v5d, 23 oct.), en plus :
+    "cas_b" (toujours) : cas_b_contredit. Avec etendue (rag_v5d), en plus :
       "securite"  : un mot de sécurité dans l'avis et une action autre qu'escalade_securite. Le message demande de
                     revérifier le cas A sans l'imposer : le détecteur se trompe parfois (« I did not get sick ») ;
       "condition" : une condition invérifiable écrite comme remplie (« since this was your first purchase »).
@@ -419,7 +419,7 @@ def cmd_index():
 
 def cmd_jeux():
     if JEUX.exists():
-        print(f"{JEUX} existe déjà : les jeux sont tirés une fois pour toutes. Supprime-le à la main pour refaire.")
+        print(f"{JEUX} existe déjà : les jeux sont tirés une fois pour toutes. Le supprimer à la main pour refaire.")
         return
     jeux = tirer_jeux(pd.read_parquet(POOL))
     JEUX.parent.mkdir(parents=True, exist_ok=True)
@@ -486,7 +486,7 @@ def cmd_eval_recherche(part, k_max=10):
     vecteurs = vecteurs_avis(df, client, DOSSIER / f"avis_{part}.npz")
     motifs = charger_motifs(part)
     if not motifs:
-        print("Pas de motifs prédits : lance d'abord `classer`. Le filtre sera sans effet.")
+        print("Pas de motifs prédits : lancer d'abord `classer`. Le filtre sera sans effet.")
     pertinents = [set(r["pertinents"]) for r in lignes]
     motifs_passages = [p["motifs"] for p in passages]
     for filtre in (False, True):

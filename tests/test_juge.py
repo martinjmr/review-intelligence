@@ -1,6 +1,6 @@
-"""Tests du LLM-juge (src/juge.py). Lance-les avec :  python -m pytest -q
+"""Tests du LLM-juge (src/juge.py). Lancement :  python -m pytest -q
 Sans Internet ni clé : ils vérifient les messages, le verdict, la calibration et la comparaison appariée sur les
-exemples chiffrés du cours 6 (sections 5 et 7).
+exemples chiffrés calculés à la main.
 """
 import pytest
 from pydantic import ValidationError
@@ -63,13 +63,13 @@ def test_est_fautive_un_seul_non_suffit():
 
 # ---------- matrice_fautes et metriques_calibration ----------
 
-def test_matrice_fautes_exemple_du_cours_et_ids_communs_seulement():
+def test_matrice_fautes_exemple_chiffre_et_ids_communs_seulement():
     ref, juge = notes_exemple()
     juge["absent_de_ref"] = note(ton=False)
     assert matrice_fautes(ref, juge) == {"VP": 7, "FP": 2, "FN": 1, "VN": 10}
 
 
-def test_metriques_calibration_exemple_du_cours():
+def test_metriques_calibration_exemple_chiffre():
     met = metriques_calibration({"VP": 7, "FP": 2, "FN": 1, "VN": 10})
     assert met["n"] == 20
     assert met["accord"] == pytest.approx(0.85)
@@ -102,7 +102,7 @@ def test_matrices_par_critere_positif_egal_non():
 
 
 def test_regle_acceptation_refuse_le_juge_qui_dit_non_a_tout():
-    """Tes 20 notes sur « fondée » : 9 non, 11 oui. Juge qui dit non à tout : rappel 1, précision 9/20 = 0,45."""
+    """20 notes humaines sur « fondée » : 9 non, 11 oui. Juge qui dit non à tout : rappel 1, précision 9/20 = 0,45."""
     assert regle_acceptation({"VP": 9, "FP": 11, "FN": 0, "VN": 0}) == "refusé"
     assert regle_acceptation({"VP": 8, "FP": 2, "FN": 1, "VN": 9}) == "accepté"      # rappel 0,89, précision 0,80
     assert regle_acceptation({"VP": 7, "FP": 1, "FN": 2, "VN": 10}) == "refusé"      # rappel 0,78 < 0,80
@@ -111,12 +111,12 @@ def test_regle_acceptation_refuse_le_juge_qui_dit_non_a_tout():
 
 
 def test_regle_acceptation_trop_peu_de_oui_ou_de_non():
-    """Le verdict global de tes notes : 18 fautives, 2 acceptables -> la règle ne peut pas trancher."""
+    """Le verdict global des notes humaines : 18 fautives, 2 acceptables -> la règle ne peut pas trancher."""
     assert regle_acceptation({"VP": 18, "FP": 2, "FN": 0, "VN": 0}) == "trop peu"
     assert regle_acceptation({"VP": 2, "FP": 0, "FN": 2, "VN": 16}) == "trop peu"
 
 
-def test_wilson_exemple_du_cours():
+def test_wilson_exemple_chiffre():
     bas, haut = wilson(7, 8)
     assert (round(bas, 2), round(haut, 2)) == (0.53, 0.98)
     assert wilson(0, 0) is None
@@ -124,7 +124,7 @@ def test_wilson_exemple_du_cours():
 
 # ---------- p_test_du_signe et comparer_apparie ----------
 
-def test_p_test_du_signe_exemples_du_cours():
+def test_p_test_du_signe_exemples_chiffres():
     assert p_test_du_signe(3, 8) == pytest.approx(0.2266, abs=1e-4)
     assert p_test_du_signe(1, 10) == pytest.approx(0.0117, abs=1e-4)
     assert p_test_du_signe(5, 15) == pytest.approx(0.0414, abs=1e-4)
@@ -132,7 +132,7 @@ def test_p_test_du_signe_exemples_du_cours():
     assert p_test_du_signe(4, 4) == 1.0          # égalité : p plafonné à 1
 
 
-def test_comparer_apparie_exemple_du_cours():
+def test_comparer_apparie_exemple_chiffre():
     paires = [(True, True)] * 28 + [(True, False)] * 3 + [(False, True)] * 8 + [(False, False)] * 11
     a = {f"r{i:02d}": x for i, (x, _) in enumerate(paires)}
     b = {f"r{i:02d}": y for i, (_, y) in enumerate(paires)}

@@ -110,7 +110,7 @@ complaint").
    4,979 valid reviews; a single test measurement per model.
 
 **Principles held throughout**: frozen test set; primary metric (macro-F1) and primary comparison fixed before the
-results; every decision dated and recorded before the measurement in [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md);
+results; every decision recorded before the measurement in [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md);
 confidence intervals everywhere; a gap is only claimed if its paired interval excludes 0.
 
 ## What the invoice taught
@@ -283,7 +283,7 @@ python -m src.juge comparer --prompt rag_v5d                # RAG vs whole polic
 | `corpus/politique_client.jsonl` | fictional customer policy (46 passages) |
 | `prompts/` | versioned prompts: classification v1 to v4, replies `rag_v1` to `rag_v5`, judge `juge_v1` and `juge_v2` |
 | `tests/` | 114 tests (`python -m pytest -q`) |
-| `docs/CONVENTIONS.md` | every decision and every figure, dated (French) |
+| `docs/CONVENTIONS.md` | every decision and every figure (French) |
 | `docs/guide_annotation.md` | annotation guide (v1, frozen; French) |
 | `livrable/` | summary slides: `slide.py` produces `synthese.png` / `.pdf` (English) and `synthese_fr.png` / `.pdf` (French) |
 

@@ -32,7 +32,7 @@ MODEL_NAME = "distilbert-base-uncased"   # avis en anglais ; 66 M de paramètres
 MAX_LENGTH = 512          # tokens ; mesuré sur l'entraînement : médiane 47, 1,9 % au-delà de 256, 0,2 % (8 avis) de 512
 BATCH_SIZE = 16
 GRID = [(2e-5, 4), (5e-5, 4), (5e-5, 6)]   # (taux d'apprentissage, époques du calendrier), chacun x SEEDS ;
-                                            # (5e-5, 6) ajouté le 15 oct. 2026 : le meilleur réglage était au bord
+                                            # (5e-5, 6) ajouté ensuite : le meilleur réglage était au bord
 GRID_RAPIDE = [(2e-5, 1)]
 SEEDS = (42, 43, 44)      # 3 graines par réglage : un fine-tuning varie d'un essai à l'autre
 WARMUP = 0.1              # part des pas en montée linéaire du taux d'apprentissage
@@ -298,7 +298,7 @@ def run_compare(out_dir=OUT_DIR):
     out_dir = Path(out_dir)
     runs = read_runs(out_dir / "grille.jsonl")
     if not runs:
-        raise SystemExit(f"Aucun résultat de grille dans {out_dir} : copie-y grille.jsonl et les val_proba_*.npy.")
+        raise SystemExit(f"Aucun résultat de grille dans {out_dir} : y copier grille.jsonl et les val_proba_*.npy.")
     best = choose_config(runs)
     train_df, val_df = load_data()
     ref = list(val_df["motifs"])
@@ -348,7 +348,7 @@ def run_final(out_dir=OUT_DIR, validee=GRILLE_VALIDEE, pool_path=POOL):
                          "src/distilbert.py, et décision consignée dans CONVENTIONS.md.")
     runs = read_runs(out_dir / "grille.jsonl")
     if not runs:
-        raise SystemExit(f"Aucun résultat de grille dans {out_dir} : lance d'abord `grid`.")
+        raise SystemExit(f"Aucun résultat de grille dans {out_dir} : lancer d'abord `grid`.")
     import torch                                        # après les garde-fous : ils se testent sans torch
     from transformers import AutoTokenizer
     best = choose_config(runs)

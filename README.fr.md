@@ -110,7 +110,7 @@ les modèles (`non_conforme`, `autre`) sont ceux dont la frontière a dû être 
    ré-entraînement sur les 4 979 avis valides ; une seule mesure sur le test par modèle.
 
 **Principes tenus tout au long** : test gelé ; métrique principale (macro-F1) et comparaison principale fixées avant
-les résultats ; chaque décision datée et consignée avant la mesure dans [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) ;
+les résultats ; chaque décision consignée avant la mesure dans [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) ;
 intervalles de confiance partout ; un écart n'est déclaré que si son intervalle apparié exclut 0.
 
 ## Ce que la facture a appris
@@ -284,7 +284,7 @@ python -m src.juge comparer --prompt rag_v5d                # RAG contre toute l
 | `corpus/politique_client.jsonl` | politique client fictive (46 passages) |
 | `prompts/` | prompts versionnés : classement v1 à v4, réponses `rag_v1` à `rag_v5`, juge `juge_v1` et `juge_v2` |
 | `tests/` | 114 tests (`python -m pytest -q`) |
-| `docs/CONVENTIONS.md` | toutes les décisions et tous les chiffres, datés |
+| `docs/CONVENTIONS.md` | toutes les décisions et tous les chiffres |
 | `docs/guide_annotation.md` | guide d'annotation (v1, gelé) |
 | `livrable/` | slides de synthèse : `slide.py` produit `synthese.png` / `.pdf` (anglais) et `synthese_fr.png` / `.pdf` (français) |
 

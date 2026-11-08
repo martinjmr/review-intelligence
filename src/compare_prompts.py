@@ -21,7 +21,7 @@ GUIDE_EXACT = {24: "a", 44: "g", 50: "rf", 58: "a", 66: "rf", 86: "a", 87: "rg",
 GUIDE_REQUIRED = {7: "f", 11: "f", 19: "g", 22: "f", 26: "n", 38: "r", 65: "g", 75: "r",
                   92: "f", 96: "f", 101: "r", 129: "f", 134: "f", 157: "f", 180: "r", 181: "r"}  # motif présent
 EXAMPLES_V3 = {61, 64, 149, 163, 169, 178}     # dans les prompts v3 et v4 : exclus de toute mesure
-MIN_CRITERE_1 = 22                             # sur 29, fixé le 13 oct. 2026 avant tout appel v3
+MIN_CRITERE_1 = 22                             # sur 29, fixé avant tout appel v3
 ANNOTATIONS = Path("data/annotations_explo.jsonl")
 ORDER = "rfngpa"                               # ordre d'affichage des lettres (celui de l'arbre du guide)
 
@@ -65,7 +65,7 @@ def main():
     parser.add_argument("a", help="prompt de référence, ex. v2")
     parser.add_argument("b", help="prompt candidat, ex. v3")
     parser.add_argument("--annotations", default=str(ANNOTATIONS),
-                        help="annotations d'explo servant de référence au critère 3 (défaut : celles de Martin)")
+                        help="annotations d'explo servant de référence au critère 3 (défaut : celles de l'auteur)")
     args = parser.parse_args()
     a, b = args.a, args.b
 
@@ -94,7 +94,7 @@ def main():
     print(f"Score : {a} {score[a]}/{len(cases)}, {b} {score[b]}/{len(cases)} -> critère 1 "
           + ("rempli" if score[b] >= MIN_CRITERE_1 else f"NON rempli (seuil {MIN_CRITERE_1})"))
 
-    # Avis divergents, hors guide et hors exemples : ceux que Martin annote à l'aveugle.
+    # Avis divergents, hors guide et hors exemples : ceux que l'auteur annote à l'aveugle.
     excluded = set(cases) | EXAMPLES_V3
     div = [ids[n] for n in ids if n not in excluded
            and ids[n] in lab[a] and ids[n] in lab[b] and lab[a][ids[n]] != lab[b][ids[n]]]
@@ -102,12 +102,12 @@ def main():
     div_path.write_text("\n".join(div) + "\n", encoding="utf-8")
     print(f"\n{len(div)} avis où {a} et {b} diffèrent (hors guide et exemples) -> {div_path}")
 
-    # Critère 3 : sur ces avis, qui a raison selon l'annotation de Martin (étiquette identique) ?
+    # Critère 3 : sur ces avis, qui a raison selon l'annotation de l'auteur (étiquette identique) ?
     ann = load_annotations(Path(args.annotations))
     gold = {rid: set(r["motifs"]) for (rid, rnd), r in ann.items() if rnd == 1}
     done = [rid for rid in div if rid in gold]
     if not done:
-        print(f"Critère 3 : aucun de ces avis n'est annoté. Annote-les d'abord :\n"
+        print(f"Critère 3 : aucun de ces avis n'est annoté. Les annoter d'abord :\n"
               f"  python -m src.annotate --part explo --ids {div_path}")
         return
     num = {rid: n for n, rid in ids.items()}
@@ -117,14 +117,14 @@ def main():
         winner = next((v for v in (a, b) if lab[v][rid] == gold[rid]), None)   # au plus un : a et b diffèrent
         if winner:
             wins[winner] += 1
-        print(f"  n° {num[rid]:3d}  toi {letters(gold[rid]):4s}  {a} {letters(lab[a][rid]):4s}  "
+        print(f"  n° {num[rid]:3d}  réf {letters(gold[rid]):4s}  {a} {letters(lab[a][rid]):4s}  "
               f"{b} {letters(lab[b][rid]):4s}  -> {winner or 'les deux faux'}")
     both_wrong = len(done) - wins[a] - wins[b]
     print(f"{b} juste {wins[b]}, {a} juste {wins[a]}, les deux faux {both_wrong} ; "
           f"test du signe p = {sign_test(wins[a], wins[b]):.3f} -> critère 3 "
           + ("rempli" if wins[b] >= wins[a] else "NON rempli"))
     if len(done) < len(div):
-        print("  (partiel : relance après avoir annoté les avis restants)")
+        print("  (partiel : relancer après avoir annoté les avis restants)")
 
 
 if __name__ == "__main__":

@@ -1,8 +1,8 @@
 """Étapes 2 et 3 : mesurer un accord entre annotations et la qualité d'un classifieur.
 
 Usage :
-  python -m src.metrics accord                                    # ta cohérence : passe 1 contre passe 2
-  python -m src.metrics eval data/labels_test_v3.jsonl            # un modèle contre ta référence (étape 3)
+  python -m src.metrics accord                                    # cohérence de l'annotateur : passe 1 contre passe 2
+  python -m src.metrics eval data/labels_test_v3.jsonl            # un modèle contre la référence humaine (étape 3)
   python -m src.metrics eval data/labels_test_v3.jsonl --contre data/labels_test_autre.jsonl
                                                                   # deux modèles : bootstrap apparié
 """
@@ -121,7 +121,7 @@ def exact_match(Y_true, Y_pred):
 
 
 def reference(ann):
-    """Ta référence : l'arbitrage (passe 3) s'il existe, sinon la passe 1. {review_id: motifs}."""
+    """Référence humaine : l'arbitrage (passe 3) s'il existe, sinon la passe 1. {review_id: motifs}."""
     ref = {rid: a["motifs"] for (rid, rnd), a in ann.items() if rnd == 1}
     ref.update({rid: a["motifs"] for (rid, rnd), a in ann.items() if rnd == 3})
     return ref
@@ -146,7 +146,7 @@ def _fmt_ci(est, low, high):
 def report_accord(ann):
     ids = [rid for (rid, rnd) in ann if rnd == 2]
     if not ids:
-        print("Aucune ré-annotation (passe 2) : lance d'abord `python -m src.annotate --round 2`.")
+        print("Aucune ré-annotation (passe 2) : lancer d'abord `python -m src.annotate --round 2`.")
         return
     Y1 = to_matrix([ann[(rid, 1)]["motifs"] for rid in ids])
     Y2 = to_matrix([ann[(rid, 2)]["motifs"] for rid in ids])
@@ -178,7 +178,7 @@ def report_eval(ann, path, other=None):
     print("micro-F1    :", _fmt_ci(*bootstrap_ci(Y, P, lambda A, B: scores(A, B)["micro_f1"])))
     print("macro-F1    :", _fmt_ci(*bootstrap_ci(Y, P, macro_f1)))
     print("accord exact:", _fmt_ci(*bootstrap_ci(Y, P, exact_match)))
-    print("Kappa toi / modèle par motif (à comparer à ton accord avec toi-même) :")
+    print("Kappa référence / modèle par motif (à comparer à l'accord de l'annotateur avec lui-même) :")
     print("  " + ", ".join(f"{m} {k:.2f}" for m, k in kappa_par_motif(Y, P).items()))
     if other:
         preds_b = load_predictions(other)

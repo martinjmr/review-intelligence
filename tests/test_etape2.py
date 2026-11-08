@@ -1,5 +1,5 @@
-"""Tests de l'étape 2 (outil d'annotation) et des métriques. Lance-les avec :  python -m pytest -q
-Les métriques sont comparées à scikit-learn sur des données tirées au hasard : si tes chiffres
+"""Tests de l'étape 2 (outil d'annotation) et des métriques. Lancement :  python -m pytest -q
+Les métriques sont comparées à scikit-learn sur des données tirées au hasard : si les chiffres
 diffèrent de ceux de la bibliothèque, le test le dit.
 """
 import json

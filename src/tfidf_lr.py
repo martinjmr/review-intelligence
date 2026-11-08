@@ -37,7 +37,7 @@ THRESHOLD = 0.5           # fixe : class_weight="balanced" fait déjà le travai
 MOTIFS_PLAINTE = [m for m in MOTIFS if m != "autre"]   # 5 classifieurs ; autre se déduit
 GRID = [{"C": C, "ngram_range": ng, "min_df": md}      # fixée avant toute mesure : 20 configurations
         for C in (0.1, 0.3, 1, 3, 10) for ng in ((1, 1), (1, 2)) for md in (1, 3)]
-REFIT = True   # décision B du 14 oct. 2026 (CONVENTIONS.md) : ré-entraîné sur 4 979 avis avant le test
+REFIT = True   # décision B (CONVENTIONS.md) : ré-entraîné sur 4 979 avis avant le test
 
 
 def load_train_labels(path=LABELS):
@@ -254,10 +254,10 @@ def run_final(pool_path=POOL, labels_path=LABELS, choix=CHOIX, out=PREDS_TEST, r
     if out.exists():
         raise SystemExit(f"{out} existe déjà : le test se mesure une seule fois par modèle figé (biais du gagnant).")
     if refit is None:
-        raise SystemExit("Tranche d'abord le ré-entraînement : REFIT = False ou True en tête "
-                         "de src/tfidf_lr.py, et consigne la décision dans CONVENTIONS.md.")
+        raise SystemExit("Trancher d'abord le ré-entraînement : REFIT = False ou True en tête "
+                         "de src/tfidf_lr.py, et consigner la décision dans CONVENTIONS.md.")
     if not choix.exists():
-        raise SystemExit("Lance d'abord `python -m src.tfidf_lr grid`.")
+        raise SystemExit("Lancer d'abord `python -m src.tfidf_lr grid`.")
     cfg = json.loads(choix.read_text(encoding="utf-8"))["config"]
     cfg["ngram_range"] = tuple(cfg["ngram_range"])          # JSON ne connaît que les listes
     train, val = load_data(pool_path, labels_path)
@@ -292,7 +292,7 @@ def run_final(pool_path=POOL, labels_path=LABELS, choix=CHOIX, out=PREDS_TEST, r
 def load_config(choix=CHOIX):
     """Configuration choisie par `grid`, prête pour build_pipeline."""
     if not choix.exists():
-        raise SystemExit("Lance d'abord `python -m src.tfidf_lr grid`.")
+        raise SystemExit("Lancer d'abord `python -m src.tfidf_lr grid`.")
     cfg = json.loads(choix.read_text(encoding="utf-8"))["config"]
     cfg["ngram_range"] = tuple(cfg["ngram_range"])          # JSON ne connaît que les listes
     return cfg

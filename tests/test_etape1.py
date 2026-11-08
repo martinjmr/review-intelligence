@@ -1,5 +1,5 @@
-"""Tests de l'étape 1. Lance-les avec :  python -m pytest -q
-Tous doivent passer AVANT d'appeler la vraie API : ils n'utilisent ni Internet ni ta clé.
+"""Tests de l'étape 1. Lancement :  python -m pytest -q
+Tous doivent passer AVANT d'appeler la vraie API : ils n'utilisent ni Internet ni clé d'API.
 """
 import json
 from types import SimpleNamespace

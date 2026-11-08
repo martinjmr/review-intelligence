@@ -1,6 +1,6 @@
-# Conventions du projet : décisions et résultats datés
+# Conventions du projet : décisions et résultats
 
-## Motifs (version v2, validée le 12 oct. 2026 sur les 200 avis d'explo)
+## Motifs (version v2, validée sur les 200 avis d'explo)
 | Motif | Définition | Frontière |
 | --- | --- | --- |
 | reception | problème lié au transport ou au colis : retard, colis perdu ou incomplet, produit cassé, écrasé, fondu ou qui fuit à l'arrivée, emballage abîmé, ouvert ou mal conçu | produit arrivé intact mais mauvais -> gout_texture ou fraicheur_securite |
@@ -14,36 +14,36 @@ Multi-étiquette : un avis peut porter plusieurs motifs.
 Seuils de l'étape 1 : chaque motif >= 5 % des avis, aucun motif > 50 %, « autre » <= 25 %. Sinon : nouvelle version du prompt.
 Le seuil de 5 % sert surtout à la mesure : sur les 300 avis de test, 5 % = 15 avis positifs, le minimum pour un F1 par motif
 dont l'intervalle de confiance reste utilisable (environ ± 0,2 sur le rappel).
-Le plafond de 50 % sert à repérer un motif fourre-tout. Précision du 12 oct. 2026 (écrite après la mesure v2, en toute
+Le plafond de 50 % sert à repérer un motif fourre-tout. Précision (écrite après la mesure v2, en toute
 transparence) : un motif au-dessus de 50 % est gardé s'il est homogène, c'est-à-dire si au moins 80 % de ses avis relèvent
 d'une même décision métier ; sinon on le coupe. `verdict` affiche l'alerte, la vérification d'homogénéité se fait à la main.
 
-Résultats v2 (prompt v2, mistral-small, 200 avis d'explo, 12 oct. 2026) : gout_texture 56 % (IC 95 % 49-63 %),
+Résultats v2 (prompt v2, mistral-small, 200 avis d'explo) : gout_texture 56 % (IC 95 % 49-63 %),
 fraicheur_securite 15 %, reception 14,5 %, non_conforme 12,5 %, prix 11,5 %, autre 6,5 % ; invalides 1,5 % ;
-accord avec la relecture : 30/30 pour Martin, 28/30 pour un second relecteur (n° 7 effet sur la santé -> autre ; n° 24 lait -> gout_texture, prix).
+accord avec la relecture : 30/30 pour l'auteur, 28/30 pour un second relecteur (n° 7 effet sur la santé -> autre ; n° 24 lait -> gout_texture, prix).
 gout_texture gardé : 85 % de ses avis parlent de goût ou de texture (tri par mots-clés sur motif_libre). Le couper en
 gout / texture recréerait une frontière floue (« aqueux », « fade et sec ») pour un faible gain métier.
 Défaut connu du prompt v2, à corriger en v3 avant l'étape 3 : les effets sur la santé partent parfois dans « autre » (2/200).
 
-Historique v1 (livraison, emballage, qualite, prix, service, autre), mesuré sur les 200 avis d'explo le 12 oct. 2026 :
-qualite 77 %, emballage 15 %, prix 14,5 %, livraison 6 %, autre 3,5 %, service 0 % ; accord avec la relecture de Martin 27/30.
+Historique v1 (livraison, emballage, qualite, prix, service, autre), mesuré sur les 200 avis d'explo :
+qualite 77 %, emballage 15 %, prix 14,5 %, livraison 6 %, autre 3,5 %, service 0 % ; accord avec la relecture de l'auteur 27/30.
 Raisons du changement : service absent de ces données (les remarques sur le vendeur vont dans les avis vendeurs d'Amazon),
 qualite trop large, frontière livraison / emballage incohérente (21 avis « arrivés abîmés », 6 étiquetages différents).
 
-## Annotation et évaluation (étape 2, décisions des 12 et 13 oct. 2026)
-- Guide : `docs/guide_annotation.md`, v1 gelé le 12 oct. 2026 avant le premier avis de test. Arbre « une plainte, un motif :
+## Annotation et évaluation (étape 2)
+- Guide : `docs/guide_annotation.md`, v1 gelé avant le premier avis de test. Arbre « une plainte, un motif :
   celui de sa cause » (ordre reception, fraicheur_securite, non_conforme, gout_texture, prix) ; une conséquence compte à part
   si elle concerne une autre équipe ; le titre compte autant que le texte ; ingrédients et tailles « annoncés par défaut » ;
   13 groupes de cas limites tranchés sur explo. Une règle née d'un avis de test entre dans le guide (v1.x), jamais dans un
   prompt avant la mesure.
-- Référence : passe 1 = 300 avis de test annotés par Martin avec le guide v1, lus dans un fichier d'aperçu puis saisis dans
-  l'outil le 13 oct. (~7 h estimées ; `duree_s` = temps de saisie seulement). Parts : gout_texture 57 %, fraicheur_securite
+- Référence : passe 1 = 300 avis de test annotés par l'auteur avec le guide v1, lus dans un fichier d'aperçu puis saisis dans
+  l'outil (~7 h estimées ; `duree_s` = temps de saisie seulement). Parts : gout_texture 57 %, fraicheur_securite
   15,3 %, reception 14 %, prix 13 %, autre 10,7 %, non_conforme 8 % (chaque motif >= 24 positifs). Passe 2 : 50 avis tirés
   (graine 42), au moins 3 jours après, dans l'outil, sans les notes de passe 1, et avant de lire les étiquettes du LLM sur
   le test avis par avis. Passe 3 : arbitrage des désaccords ; référence finale = passe 3 si elle existe, sinon passe 1.
   `data/annotations_test.jsonl` est suivi par git (exception dans `.gitignore`).
-- Passe 2 faite le 14 oct. 2026, 2 jours après l'annotation hors outil et 1 jour après la saisie, au lieu de 3 jours :
-  écart décidé par Martin (la saisie, à 1,2 s par avis en médiane, n'était pas une relecture). 50 avis, 0 doute, durée
+- Passe 2 faite 2 jours après l'annotation hors outil et 1 jour après la saisie, au lieu de 3 jours :
+  écart assumé (la saisie, à 1,2 s par avis en médiane, n'était pas une relecture). 50 avis, 0 doute, durée
   médiane 18 s par avis (27 min). Accord exact 0,70 [0,58 ; 0,82], 15 avis en désaccord. Kappa (positifs passe 1 /
   passe 2) : gout_texture 0,68 [0,48 ; 0,84] (26 / 24) ; ordres de grandeur seulement : reception 0,49 (7 / 4),
   fraicheur_securite 0,39 (5 / 4), prix 0,74 (8 / 5) ; non interprétables (trop peu de positifs) : non_conforme 0,88
@@ -52,19 +52,19 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   Plafond de mesure : 2e(1 − e) = 0,30 donne e ≈ 0,18 ; environ 18 % des avis de la référence
   portent une étiquette instable, et même un modèle parfait n'aurait qu'environ 82 % d'accord exact avec la passe 1
   (hypothèse d'erreurs indépendantes, optimiste).
-- Passe 3 faite le 14 oct. 2026 (15 désaccords arbitrés, commit `ccb2d66`), avant l'étiquetage du test par le LLM.
+- Passe 3 (15 désaccords arbitrés, commit `ccb2d66`), avant l'étiquetage du test par le LLM.
   Référence finale : passe 3 sur ces 15 avis, passe 1 sur les 285 autres. Guide inchangé (v1).
-- Métrique principale (13 oct. 2026, avant tout résultat sur le test) : macro-F1 sur les 6 motifs, avec IC 95 % par bootstrap
+- Métrique principale (fixée avant tout résultat sur le test) : macro-F1 sur les 6 motifs, avec IC 95 % par bootstrap
   percentile (2 000 tirages d'avis, graine 42). À côté : P / R / F1 / support par motif, micro-F1, accord exact, kappa
   référence / modèle par motif. Réponses manquantes ou invalides d'un modèle = liste vide (comptées comme erreurs) ;
   division par zéro = 0.
 - Comparaisons : « B bat A » seulement si l'IC du bootstrap apparié de l'écart exclut 0 ; sinon, décision sur le coût et la
-  latence. Comparaison principale (validée le 13 oct. 2026, avant tout résultat) : macro-F1 du meilleur modèle entraîné
+  latence. Comparaison principale (fixée avant tout résultat) : macro-F1 du meilleur modèle entraîné
   (TF-IDF + régression logistique ou DistilBERT, choisi sur un jeu de validation, jamais sur le test) contre mistral-small
-  (`mistral-small-2603`) avec le prompt v4 (retenu le 13 oct. 2026 à la place de v3, prévu au départ : voir section
+  (`mistral-small-2603`) avec le prompt v4 (retenu à la place de v3, prévu au départ : voir section
   Prompts v3 et v4), par bootstrap apparié sur les 300 avis de test. Toutes les autres comparaisons sont exploratoires.
 
-## Prompts v3 et v4 (étape 3, décisions du 13 oct. 2026)
+## Prompts v3 et v4 (étape 3)
 - Contenu (`prompts/v3.txt`) : liste v2 + règles du guide v1, une ligne par règle + 6 exemples d'explo dans le prompt
   système (n° 178, 169, 149, 163 en extrait, 64, 61 : un par grappe d'erreurs de v2). 2 970 caractères, ~700 tokens
   d'entrée estimés. Budget : 4 000 caractères au plus (au-delà, la limite de 20 000 tokens/min ralentit l'étiquetage).
@@ -79,7 +79,7 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
      87 r+g, 112 a, 146 a, 147 r+g+p, 152 f+g, 160 f, 183 a) ; sinon, motif requis présent (r : 38, 75, 101, 180, 181 ;
      f : 7, 11, 22, 92, 96, 129, 134, 157 ; n : 26 ; g : 19, 65) ;
   2. moins de 2 % d'invalides sur les 200 avis d'explo ;
-  3. sur les avis où v2 et v3 diffèrent, annotés à l'aveugle par Martin avec le guide, v3 a raison au moins aussi
+  3. sur les avis où v2 et v3 diffèrent, annotés à l'aveugle par l'auteur avec le guide, v3 a raison au moins aussi
      souvent que v2.
 - Question ouverte : n° 38 (« kind of pricey per bottle ») -> r ou r + p ? Sans effet sur le critère (seul r est vérifié).
 - Résultats v3 (200 avis d'explo) : critère 1 21/29 (v2 10/29), critère 2 3,5 % d'invalides (7 avis, tous
@@ -98,29 +98,29 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
 - Résultats v4 (200 avis d'explo) : critère 2 0 % d'invalides (rempli) ; critère 1 18/29 (raté ; v3 21, v2 10).
   Seuls les avis où un seul prompt a raison comptent : v3 contre v4 6 contre 3 (test du signe p = 0,51), v4 contre v2
   10 contre 2 (p = 0,04). 13 des 29 cas ont changé d'étiquette entre v3 et v4 pour 2 lignes de prompt modifiées : sur
-  les cas limites, le modèle est instable. Critère 3 : 29 avis divergents, annotés par un second annotateur et non par Martin
+  les cas limites, le modèle est instable. Critère 3 : 29 avis divergents, annotés par un second annotateur et non par l'auteur
   (écart au critère ; 14 doutes sur 29 ; cet annotateur avait rédigé le brouillon du prompt et connaissait l'étiquette
   v3 de quelques avis par les motif_libre de v3) : v4 juste 8, v2 juste 12, les deux faux 9 (p = 0,50) -> raté. Défauts vus : v4 ajoute un second
   motif à une plainte unique (6 avis) et classe en autre des plaintes de goût peu détaillées (2 avis ; aussi n° 19 et 181).
   Mesures : attempts = 1 sur 200, latence médiane 0,70 s, p95 1,49 s ; 790 tokens d'entrée, 45,5 de sortie.
   Parts : gout_texture 53,5 %, fraicheur_securite 18,5 %, reception 17,5 %, prix 14 %, autre 9,5 %, non_conforme 4,5 %
-  (référence de Martin sur le test : non_conforme 8 %).
-- **Décision (13 oct. 2026, Martin), contraire à la règle de repli** (qui prévoyait arrêt et discussion) : le train est
+  (référence humaine du test : non_conforme 8 %).
+- **Décision, contraire à la règle de repli** (qui prévoyait arrêt et discussion) : le train est
   étiqueté avec v4, et v4 est le prompt de la comparaison principale. Raisons : sur les 58 avis mesurés (29 du guide +
   29 divergents), v4 gagne 18 contre 14 (p = 0,60, match nul) ; 0 % d'invalides ; plus proche du guide, qui a servi à
   annoter la référence du test. Limites connues, à reporter dans le livrable : critères 1 et 3 ratés, non_conforme
-  peut-être sous-étiqueté, empilement de motifs. Contrôle facultatif (annotation des 29 avis divergents par Martin,
-  pour mesurer l'accord entre les deux annotateurs) : écarté le 14 oct. 2026, non fait.
-- Train étiqueté avec v4 (13-14 oct. 2026, `data/labels_train_v4.jsonl`) : 5 000 / 5 000, 0 erreur ; invalides 0,4 %
+  peut-être sous-étiqueté, empilement de motifs. Contrôle facultatif (annotation des 29 avis divergents par l'auteur,
+  pour mesurer l'accord entre les deux annotateurs) : écarté, non fait.
+- Train étiqueté avec v4 (`data/labels_train_v4.jsonl`) : 5 000 / 5 000, 0 erreur ; invalides 0,4 %
   (21 avis, tous `autre_combine`) ; attempts = 1 pour 4 999 avis, 5 pour 1 ; latence médiane 0,67 s, p95 1,3 s ;
   790,6 tokens d'entrée, 45,6 de sortie ; coût 0,7296 $ (14,59 $ pour 100 000 avis). Parts : gout_texture 59 %,
   fraicheur_securite 15,5 %, prix 14,5 %, reception 11,4 %, non_conforme 8,7 %, autre 8,3 %. Plus proches de la
-  référence de Martin sur le test que celles d'explo : la crainte d'un non_conforme sous-étiqueté (4,5 % sur explo)
+  référence humaine du test que celles d'explo : la crainte d'un non_conforme sous-étiqueté (4,5 % sur explo)
   venait du bruit d'échantillonnage sur 200 avis (écart-type d'une part : √(p(1−p)/200), ±5 points à 95 % pour 15 %).
   Limite connue : dans les motif_libre des avis « autre », quelques vraies plaintes avalées par l'étape 4 (« difficile
   à ouvrir », « goût non apprécié ») ; estimation grossière ~1 % du train.
 
-## Modèles entraînés (étape 4, décisions du 14 oct. 2026)
+## Modèles entraînés (étape 4)
 - Étiquettes d'entraînement : `data/labels_train_v4.jsonl`, lignes `error` ignorées, les 21 invalides exclus (option A,
   plutôt que les réparer en retirant « autre » ou les garder : aucune étiquette inventée ; 0,4 % du train, effet
   attendu inférieur à 0,005 de macro-F1).
@@ -133,9 +133,9 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   meilleur modèle entraîné (TF-IDF ou DistilBERT) ; le test mesure une seule fois chaque modèle figé, sans retour aux
   réglages ensuite.
 - Les étiquettes de validation sont celles de mistral-small v4 : un score de validation mesure l'accord avec ce
-  professeur, pas avec la référence de Martin.
-- Ré-entraînement après le choix (décision B du 14 oct. 2026, prise avant toute mesure d'un modèle entraîné sur le
-  test ; elle remplace la décision du même jour « pas de ré-entraînement ») : la configuration choisie sur la validation
+  professeur, pas avec la référence humaine.
+- Ré-entraînement après le choix (décision B, prise avant toute mesure d'un modèle entraîné sur le
+  test ; elle remplace une première décision « pas de ré-entraînement ») : la configuration choisie sur la validation
   est ré-entraînée sur entraînement + validation (4 979 avis), et c'est ce modèle qui est mesuré une fois sur le test.
   Même règle pour DistilBERT : ré-entraînement sur les 4 979 avis avec le nombre d'époques choisi sur la validation.
   Le choix entre TF-IDF et DistilBERT se fait sur la validation, les deux entraînés sur les 3 983 mêmes avis.
@@ -149,7 +149,7 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   × n-grammes {(1, 1), (1, 2)} × `min_df` {1, 3} ; fixes : `class_weight="balanced"`, `sublinear_tf=True`, mots vides
   gardés, seuil 0,5, 5 classifieurs (un par motif de plainte) et règle de sortie « autre si et seulement si aucun motif
   de plainte n'est retenu ». Critère de choix : macro-F1 de validation sur les 6 motifs, après la règle.
-- Résultat de la grille (14 oct. 2026, validation de 996 avis, étiquettes du professeur) : configuration choisie C = 3,
+- Résultat de la grille (validation de 996 avis, étiquettes du professeur) : configuration choisie C = 3,
   mots + paires, `min_df` = 3 (13 831 termes) ; macro-F1 0,651 (IC 95 % par bootstrap [0,620 ; 0,679]), accord exact
   0,623, entraînement 0,950 ; 0 sortie invalide sur les 20 configurations. F1 par motif : reception 0,689,
   gout_texture 0,845, fraicheur_securite 0,730, non_conforme 0,525, prix 0,687, autre 0,429 (précision 0,36, rappel
@@ -165,8 +165,8 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   et LayerNorm), montée linéaire du taux sur 10 % des pas puis descente jusqu'à 0, gradients bornés à 1,
   demi-précision, même règle de sortie que TF-IDF (seuil 0,5, autre si aucun motif). Mesure sur la validation à la fin
   de chaque époque.
-- Grille : (taux 2e-5, 4 époques) et (5e-5, 4 époques) x graines 42, 43, 44 (14 oct. 2026), puis (5e-5, 6 époques) x
-  les 3 mêmes graines, ajouté le 15 oct. 2026 parce que le meilleur réglage du 14 était au bord de la grille (taux le
+- Grille : (taux 2e-5, 4 époques) et (5e-5, 4 époques) x graines 42, 43, 44, puis (5e-5, 6 époques) x
+  les 3 mêmes graines, ajouté ensuite parce que le meilleur réglage du premier tour était au bord de la grille (taux le
   plus haut, dernière époque) ; ajout décidé sur la validation, avant tout contact avec le test. Un entraînement est
   identifié par (taux, calendrier, graine) : l'époque 4 d'un calendrier de 6 (taux encore à 37 %) n'est pas l'époque 4
   d'un calendrier de 4. Règle de choix, fixée avant les résultats : meilleure moyenne des 3 graines sur les triplets
@@ -181,7 +181,7 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
 - Comparaison TF-IDF / DistilBERT sur la validation (bootstrap apparié, mêmes 3 983 avis d'entraînement, mêmes 996
   avis de validation, étiquettes du professeur), écart DistilBERT − TF-IDF en macro-F1 : graine 42 +0,060
   [+0,029 ; +0,092], graine 43 +0,072 [+0,042 ; +0,103], graine 44 +0,076 [+0,047 ; +0,107] ; accord exact +0,051 à
-  +0,075, intervalles excluant 0. **Décision (15 oct. 2026) : DistilBERT est le meilleur modèle entraîné** ; la
+  +0,075, intervalles excluant 0. **Décision : DistilBERT est le meilleur modèle entraîné** ; la
   comparaison principale portera sur DistilBERT contre mistral-small v4. F1 par motif (graine 42 contre TF-IDF) :
   reception 0,743 / 0,689, gout_texture 0,869 / 0,845, fraicheur_securite 0,775 / 0,730, non_conforme 0,563 / 0,525,
   prix 0,791 / 0,687, autre 0,526 / 0,429. fraicheur_securite : 23 plaintes manquées sur 159 au lieu de 44 (rappel
@@ -192,51 +192,51 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   époque d'arrêt que dans la grille, puis prédit les 300 avis de test. Prévision écrite avant la mesure :
   macro-F1 sur le test entre 0,66 et 0,74. Dans le code : `GRILLE_VALIDEE = True`.
 
-## Résultats sur le test (300 avis, référence finale de Martin)
+## Résultats sur le test (300 avis, référence humaine finale)
 | Modèle | macro-F1 [IC 95 %] | micro-F1 [IC 95 %] | Accord exact [IC 95 %] | Coût / 100 000 avis | Latence médiane / p95 | Date |
 | --- | --- | --- | --- | --- | --- | --- |
 | `mistral-small-2603` + prompt v4 | 0,770 [0,716 ; 0,816] | 0,843 [0,809 ; 0,876] | 0,763 [0,717 ; 0,810] | ~4,6 € (~5,3 $), facture réelle avec cache automatique (14,6 $ au prix catalogue sans cache) | 0,76 s / 1,19 s | 14 oct. 2026 |
 | TF-IDF + régression logistique (C = 3, mots + paires, `min_df` = 3, 4 979 avis étiquetés par v4) | 0,634 [0,578 ; 0,683] | 0,739 [0,700 ; 0,777] | 0,607 [0,550 ; 0,660] | ~0 $ (~5 s de CPU ; étiquettes : 0,73 $ une fois) | 0,95 ms un avis à la fois (moyenne) ; 0,045 ms par lot | 14 oct. 2026 |
 | DistilBERT (`distilbert-base-uncased`, 5e-5, 6 époques, graine 42, 4 979 avis étiquetés par v4) | 0,712 [0,657 ; 0,758] | 0,788 [0,749 ; 0,823] | 0,683 [0,633 ; 0,733] | ~0 $ par avis (entraînement : 3,2 min de GPU T4, Colab gratuit ; étiquettes : 0,73 $ une fois) | GPU T4 : 7,6 ms un avis à la fois (moyenne de 100) ; 0,79 ms par lot ; CPU non mesuré | 15 oct. 2026 |
-| Repère humain : Martin, passe 2 contre passe 1 (50 avis) | – | – | 0,70 [0,58 ; 0,82] | – | 18 s par avis | 14 oct. 2026 |
+| Repère humain : l'auteur, passe 2 contre passe 1 (50 avis) | – | – | 0,70 [0,58 ; 0,82] | – | 18 s par avis | 14 oct. 2026 |
 
 - mistral-small v4, F1 par motif [IC 95 %] (support) : reception 0,886 [0,800 ; 0,951] (42), gout_texture 0,909
   [0,876 ; 0,940] (171), fraicheur_securite 0,901 [0,829 ; 0,961] (46), prix 0,800 [0,696 ; 0,889] (39),
   non_conforme 0,560 [0,372 ; 0,702] (24 ; 14 vrais positifs, 12 faux positifs, 10 manqués), autre 0,566
-  [0,390 ; 0,710] (32 ; 15 trouvés, 17 manqués, 6 en trop). Kappa Martin / modèle : reception 0,87, gout_texture 0,78,
+  [0,390 ; 0,710] (32 ; 15 trouvés, 17 manqués, 6 en trop). Kappa référence / modèle : reception 0,87, gout_texture 0,78,
   fraicheur_securite 0,88, non_conforme 0,52, prix 0,77, autre 0,53. 1 invalide (compté comme liste vide), 0,0436 $.
-- Lecture : sur 4 motifs sur 6, le LLM s'accorde avec la référence au moins autant que Martin avec lui-même
+- Lecture : sur 4 motifs sur 6, le LLM s'accorde avec la référence au moins autant que l'annotateur avec lui-même
   (gout_texture, seul kappa humain interprétable : 0,78 contre 0,68). Ses deux points faibles sont les deux frontières
   que le guide a dû trancher (« annoncé par défaut » pour non_conforme, « plainte vague » pour autre) et les deux motifs
   les plus rares ; le macro-F1 (0,77) les pèse autant que les autres, d'où l'écart avec le micro-F1 (0,84). Réserves :
   repère humain mesuré sur 50 avis seulement, passe 2 rapide, kappas humains des motifs rares non interprétables.
 - Ce macro-F1 est la cible de la comparaison principale (meilleur modèle entraîné sur `labels_train_v4`, bootstrap
   apparié).
-- TF-IDF + régression logistique (mesure unique du 14 oct. 2026, `data/preds_test_tfidf.jsonl`, 0 invalide), F1 par
+- TF-IDF + régression logistique (mesure unique, `data/preds_test_tfidf.jsonl`, 0 invalide), F1 par
   motif [IC 95 %] (support) : reception 0,786 [0,676 ; 0,872] (42), gout_texture 0,874 [0,834 ; 0,909] (171),
   fraicheur_securite 0,652 [0,530 ; 0,759] (46), non_conforme 0,440 [0,261 ; 0,604] (24), prix 0,675
-  [0,550 ; 0,778] (39), autre 0,375 [0,219 ; 0,514] (32 ; 32 prédits, 12 justes). Kappa Martin / modèle : reception
+  [0,550 ; 0,778] (39), autre 0,375 [0,219 ; 0,514] (32 ; 32 prédits, 12 justes). Kappa référence / modèle : reception
   0,75, gout_texture 0,70, fraicheur_securite 0,59, non_conforme 0,39, prix 0,62, autre 0,30. Prévision écrite avant
-  la mesure (0,55 à 0,68) tenue ; validation 0,651 contre le professeur, test 0,634 contre Martin.
+  la mesure (0,55 à 0,68) tenue ; validation 0,651 contre le professeur, test 0,634 contre la référence humaine.
 - Comparaison appariée TF-IDF − mistral-small v4 (bootstrap apparié, 2 000 tirages) : macro-F1 −0,137
   [−0,200 ; −0,072], accord exact −0,157 [−0,213 ; −0,100]. Les intervalles excluent 0 : le LLM bat TF-IDF. Comparaison
   provisoire : la comparaison principale portera sur le meilleur modèle entraîné, choisi sur la validation après
   DistilBERT. L'élève garde 82 % du macro-F1 du professeur (0,634 / 0,770) et 88 % de son micro-F1.
-- Lecture : TF-IDF tient sur gout_texture (kappa 0,70, au niveau de Martin avec lui-même, 0,68) et sur reception ;
+- Lecture : TF-IDF tient sur gout_texture (kappa 0,70, au niveau de l'annotateur avec lui-même, 0,68) et sur reception ;
   l'écart le plus grand porte sur fraicheur_securite (F1 −0,25 ; rappel 0,63 contre 0,89) : 17 plaintes manquées sur
   46, dont 7 classées gout_texture et 5 autre ; le LLM en retrouve 12. Hypothèse (non vérifiée) : la règle « rance,
   rassis, moisi -> fraicheur, prioritaire sur gout » et les effets sur la santé demandent de lire la phrase, alors que
   « taste » pèse lourd pour gout_texture. Ordre de grandeur métier : sur 100 000 avis (15 % de fraicheur_securite),
   l'écart de rappel représente ~4 000 plaintes de sécurité manquées en plus, à comparer au coût du LLM (~4,6 € pour
   100 000 avis, facture réelle ; 14,6 $ au prix catalogue sans cache).
-- DistilBERT (mesure unique du 15 oct. 2026, `data/preds_test_distilbert.jsonl`, 0 invalide), F1 par motif
+- DistilBERT (mesure unique, `data/preds_test_distilbert.jsonl`, 0 invalide), F1 par motif
   [IC 95 %] (support) : reception 0,810 [0,712 ; 0,894] (42), gout_texture 0,877 [0,839 ; 0,911] (171),
   fraicheur_securite 0,736 [0,622 ; 0,833] (46 ; précision 0,78, rappel 0,70 : 32 trouvées, 14 manquées), non_conforme
-  0,528 [0,350 ; 0,677] (24), prix 0,771 [0,658 ; 0,861] (39), autre 0,552 [0,383 ; 0,696] (32). Kappa Martin /
+  0,528 [0,350 ; 0,677] (24), prix 0,771 [0,658 ; 0,861] (39), autre 0,552 [0,383 ; 0,696] (32). Kappa référence /
   modèle : reception 0,78, gout_texture 0,71, fraicheur_securite 0,69, non_conforme 0,48, prix 0,73, autre 0,50.
   Prévision écrite avant la mesure (0,66 à 0,74) tenue ; validation 0,720 (moyenne des graines ; graine 42 : 0,711)
-  contre le professeur, test 0,712 contre Martin. L'élève garde 92 % du macro-F1 du professeur (TF-IDF : 82 %).
-- **Comparaison principale** (règle du 13 oct. 2026 : meilleur modèle entraîné, choisi sur la validation, contre
+  contre le professeur, test 0,712 contre la référence humaine. L'élève garde 92 % du macro-F1 du professeur (TF-IDF : 82 %).
+- **Comparaison principale** (règle fixée avant tout résultat : meilleur modèle entraîné, choisi sur la validation, contre
   mistral-small v4 ; bootstrap apparié, 2 000 tirages) : écart DistilBERT − LLM en macro-F1 −0,058 [−0,115 ; +0,003] ;
   accord exact −0,080 [−0,133 ; −0,030]. Sur la métrique principale, l'intervalle contient 0 (de justesse) : selon la
   règle, la supériorité du LLM n'est pas démontrée et la décision se prend sur le coût et la latence. Réserves à
@@ -245,7 +245,7 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   meilleur (intervalle excluant 0) ; sur fraicheur_securite, rappel 0,70 contre 0,89, soit ~3 000 plaintes de sécurité
   manquées en plus pour 100 000 avis (15 % de ce motif), à comparer aux ~4,6 € du LLM. Recommandation finale à rédiger
   dans le livrable, pas tranchée ici.
-- Rappel fraicheur_securite, bootstrap apparié (16 oct. 2026, 2 000 tirages, prédictions existantes, aucune nouvelle
+- Rappel fraicheur_securite, bootstrap apparié (2 000 tirages, prédictions existantes, aucune nouvelle
   mesure) : DistilBERT − LLM −0,196 [−0,340 ; −0,069] (46 plaintes : 10 retrouvées par le LLM seul, 1 par DistilBERT
   seul) ; TF-IDF − LLM −0,261 [−0,395 ; −0,135]. Motif choisi après coup (écart repéré à la mesure de TF-IDF) : avec la
   correction de Bonferroni sur les 6 motifs (alpha = 0,05/6), −0,196 [−0,383 ; −0,022] et −0,261 [−0,452 ; −0,103],
@@ -253,25 +253,25 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   Précision : LLM 0,911, DistilBERT 0,780, −0,131 [−0,248 ; −0,015] (Bonferroni [−0,296 ; +0,030]). Pour 100 000 avis
   (15 % de ce motif) : ~3 000 plaintes de sécurité manquées en plus par DistilBERT [~1 000 ; ~5 100]. Seuil de
   DistilBERT (0,5) non optimisé pour ce motif : le baisser remonterait son rappel au prix de sa précision (non essayé).
-- Repère humain (précision du 16 oct. 2026) : 0,70 compare la passe 2 à la passe 1 sur 50 des 300 avis ; les modèles
+- Repère humain (précision) : 0,70 compare la passe 2 à la passe 1 sur 50 des 300 avis ; les modèles
   sont mesurés contre la référence arbitrée sur les 300. Cible et taille différentes, et l'intervalle [0,58 ; 0,82]
   contient 0,763 : les deux chiffres ne se comparent pas directement. Le livrable ne dit plus « au niveau d'un
   annotateur humain » ; le repère n'y sert qu'à montrer que la tâche est ambiguë. Même réserve pour les lectures
-  « au niveau de Martin avec lui-même » ci-dessus (kappas).
+  « au niveau de l'annotateur avec lui-même » ci-dessus (kappas).
 
 ## Sortie du LLM
 - Schéma Pydantic `Etiquetage` : `evidence` (str), puis `motif_libre` (str, 3-6 mots), puis `motifs` (liste).
   L'ordre compte : la justification est générée avant l'étiquette.
 - Règles vérifiées après coup (`check_rules`) : liste non vide, « autre » seul, pas de doublon. Invalides < 2 %.
 - Appels : temperature=0, random_seed=42, max_tokens=200. Prompts versionnés dans `prompts/vN.txt`.
-  Modèle figé depuis le 13 oct. 2026 : `mistral-small-2603` (avant : l'alias `mistral-small-latest`).
+  Modèle figé : `mistral-small-2603` (avant : l'alias `mistral-small-latest`).
 - Erreurs : 401 -> arrêt ; 429 / 5xx / réseau -> backoff 1, 2, 4, 8 s, 5 essais max.
 - Sauvegarde : une ligne JSONL par avis, écrite immédiatement ; reprise en sautant les review_id déjà étiquetés
   avec succès. Les lignes `{"review_id", "error"}` ne comptent pas comme faites : relancer le script refait ces avis
-  (décision du 11 oct. 2026, option B). Le fichier peut donc contenir une ligne `error` puis une ligne réussie
+  (option B). Le fichier peut donc contenir une ligne `error` puis une ligne réussie
   pour le même avis ; `report.py` ignore les lignes `error`.
   Champs : review_id, prompt_version, model, evidence, motif_libre, motifs, problems,
-  prompt_tokens, completion_tokens, latency_s, attempts (depuis le 13 oct. 2026 ; `model` = `rep.model`, le nom
+  prompt_tokens, completion_tokens, latency_s, attempts (ajouté après les premiers runs ; `model` = `rep.model`, le nom
   annoncé par l'API, qui peut n'être que l'écho du nom demandé).
 - Réponse vide (`parsed` à None) : evidence et motif_libre à None, motifs à [] -> `problems = ["liste_vide"]`
   (compté comme invalide, pas refait).
@@ -285,24 +285,24 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   Les exemples few-shot viennent de `explo`.
 - Vérifier la diversité des 500 000 premiers avis (produits, années) : le streaming lit dans l'ordre du fichier.
 
-## RAG (jalon 2, décisions du 22 oct. 2026)
+## RAG (jalon 2)
 - Périmètre : RAG écrit à la main (`src/rag.py`, numpy), sans framework ; une version LangChain viendra au jalon 3,
   quand le RAG deviendra un outil de l'agent.
 - Corpus : `corpus/politique_client.jsonl`, politique client d'une épicerie en ligne fictive (nom provisoire
   `MARQUE = "Larder Lane"`), en anglais comme les avis. Un passage par ligne : `id` (P01...), `titre`, `motifs` (motifs
   v2 sauf `autre`, ou `general`), `texte`. Critères vérifiés par les tests : 40 à 80 passages, au moins 5 par motif,
-  100 à 250 mots chacun. Premier jet généré par un LLM le 22 oct. (46 passages, 105 à 135 mots), **validé tel quel par
-  Martin le 22 oct.**, avec ses règles chiffrées (30 jours pour réclamer, remboursement sous 5 jours ouvrés sans retour
+  100 à 250 mots chacun. Premier jet généré par un LLM (46 passages, 105 à 135 mots), relu et **validé tel quel**,
+  avec ses règles chiffrées (30 jours pour réclamer, remboursement sous 5 jours ouvrés sans retour
   du produit, remplacement sous 2 jours ouvrés, garantie goût de 15 $ maximum, 30 jours de durée de vie garantie,
   équipe sécurité sous 24 h, escalade sous 1 jour ouvré, livraison offerte dès 35 $). Le corpus est la référence de
-  l'évaluation : toute modification ultérieure se date ici et impose de reconstruire l'index.
-  - 22 oct., P08 : phrase ajoutée avec les mots des clients (« This applies even when the outside of the box looks
+  l'évaluation : toute modification ultérieure se note ici et impose de reconstruire l'index.
+  - P08 : phrase ajoutée avec les mots des clients (« This applies even when the outside of the box looks
     fine and the damage is only visible once the box is opened. »), 157 mots. Raison : au test d'échauffement, un avis
     « pot cassé, carton intact » classait P14 (Damaged box but intact product) devant P08 (0,808 contre 0,799).
     Aucune règle chiffrée changée.
 - Embeddings : `mistral-embed` (1 024 dimensions, norme 1), vecteurs renormalisés par le code ; on indexe titre + texte.
   Index : `data/rag/index.npy` + `index.json`, recalculé seulement si l'empreinte (SHA-256 des textes et du modèle) change.
-- Recherche exacte (`M @ q`). **Décision du 23 oct. 2026 : k = 8, sans filtre par motif par défaut** (option
+- Recherche exacte (`M @ q`). **Décision : k = 8, sans filtre par motif par défaut** (option
   `--filtre` pour le réactiver). Mesure sur 26 avis annotés de `rag_dev` : rappel@5 0,769 [0,615 ; 0,923] sans filtre,
   0,808 [0,654 ; 0,962] avec (un seul avis d'écart) ; rappel@8 sans filtre 0,885. Raisons : le filtre dur (motifs
   prédits par v4 + `general`) excluait des passages trouvés en tête sans filtre quand le classifieur se trompait de
@@ -312,14 +312,14 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
 - Jeux du jalon 2, tirés une fois de la réserve (graine 42, après tri par review_id) : `rag_dev` 50 avis (mise au
   point libre ; 30 annotés pour la recherche), `rag_eval` 150 avis gelés comme le test. Le test de 300 avis n'entre
   jamais dans un prompt RAG. Liste dans `data/rag/jeux.json` ; motifs prédits dans `data/labels_<jeu>_v4.jsonl`.
-- Prompt `rag_v2` depuis le 23 oct. 2026 (`rag_v1` gardé pour comparaison). Raisons, lues sur 5 réponses v1 de
+- Prompt `rag_v2` (`rag_v1` gardé pour comparaison). Raisons, lues sur 5 réponses v1 de
   `rag_dev` : citations absentes du texte (3/5), conditions supposées remplies (« since this is your first purchase »),
   promesse hors politique (remboursement à la place de l'avoir de la garantie goût), avis sans plainte traité comme une
   plainte, et « they do not affect safety » pour des éclats de noyaux. Ajouts de la v2 : cas A sécurité
   (`escalade_securite` même sans passage fourni, jamais « safe »), cas B sans plainte (`aucune`), conditions au
   conditionnel, aucune alternative non prévue, citation à la fin de chaque phrase de règle, avec un exemple.
   `escalade_securite` rejoint `escalade` et `aucune` parmi les actions dispensées de citation (`SANS_PROMESSE`).
-- Prompt `rag_v3` le 23 oct. 2026, après des réponses v2 pas meilleures que v1 sur les mêmes 5 avis (le cas sécurité
+- Prompt `rag_v3`, après des réponses v2 pas meilleures que v1 sur les mêmes 5 avis (le cas sécurité
   ignoré malgré « pits » cité dans le prompt ; « since » et le remboursement à la place de l'avoir réapparus) :
   `ReponseClient` commence par `raison` (ce que signale le client) et `cas` (securite, sans_plainte, plainte),
   générés avant la réponse, comme `evidence` avant `motifs` au jalon 1. Garde-fous en code, sans appel, ajoutés à
@@ -328,11 +328,11 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   sécurité dans l'avis lui-même ; 3,1 % des 4 979 avis du train, dont 70 % classés fraicheur_securite par v4). Ils
   signalent, ne corrigent pas : la réponse reste un brouillon relu par un humain. Le contrôle des citations accepte
   aussi `[P20, P23]`. Rejoués sur les 5 réponses v2, ils signalent toutes les fautes vues à la lecture.
-- Prompt `rag_v4` le 23 oct. 2026 : la v3 a réglé le cas sécurité (éclats de noyaux -> escalade_securite) mais a
+- Prompt `rag_v4` : la v3 a réglé le cas sécurité (éclats de noyaux -> escalade_securite) mais a
   classé trois plaintes de goût en `sans_plainte` ; seule la définition du cas B change : « the customer reports
   nothing negative at all », et un goût, une odeur ou une texture qui déplaît, une préférence pour un autre produit
   ou un prix jugé trop élevé relèvent du cas C. Dernière itération à l'œil : la suite se mesure avec le LLM-juge.
-- Génération : `mistral-small-2603`, prompt `prompts/rag_v4.txt` (v1, v2, v3 le 23 oct.), temperature=0, random_seed=42, max_tokens=500,
+- Génération : `mistral-small-2603`, prompt `prompts/rag_v4.txt` (v1, v2, v3 gardés), temperature=0, random_seed=42, max_tokens=500,
   sortie structurée `ReponseClient` (`reponse`, `citations`, `action`) ; actions : remboursement, remplacement,
   geste_commercial, escalade_securite, escalade, aucune. Deux modes : `rag` (k passages retrouvés) et `plein` (tout le
   corpus, même gabarit, pour profiter du cache).
@@ -344,14 +344,14 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
 - Coût estimé (1,267 token par mot mesuré sur l'explo ; réponse ~150 tokens) : ~226 µ$ par réponse en mode `rag`,
   ~214 µ$ en mode `plein` avec le cache (1 225 µ$ sans) ; indexation du corpus ~7 100 tokens, 0,0007 $.
 
-## LLM-juge (jalon 2, décisions du 23 oct. 2026)
+## LLM-juge (jalon 2)
 - Version légère : la mesure doit être défendable, pas exhaustive. 20 réponses notées à la main, pas de découpage
   calibration / contrôle (biais du gagnant accepté et signalé ; garde-fou : relecture de 10 jugements de `rag_eval`).
 - Grille, 3 critères oui / non : `action_conforme` (cas et action prévus par la politique pour cet avis),
   `fondee` (chaque engagement est dans un passage cité, conditions au conditionnel ; une réponse sans engagement est
   fondée), `ton` (répond au problème précis, s'excuse s'il y a un problème ; la longueur n'est pas un critère).
   Verdict : acceptable = 3 oui ; fautive = au moins un non. Grille figée avant la notation.
-  Précisions du 23 oct., avant toute notation, dans la grille et dans `prompts/juge_v1.txt` : une plainte traitée
+  Précisions ajoutées avant toute notation, dans la grille et dans `prompts/juge_v1.txt` : une plainte traitée
   comme sans plainte rend l'action non conforme même quand `aucune` est la bonne action (prix) ; une condition du
   passage omise dans une promesse (photo, numéro de commande, 30 jours, premier achat) ou un délai plus court que la
   politique rend la réponse non fondée ; deux phrases sont admises sans citation (cas A : l'équipe sécurité vous
@@ -361,14 +361,14 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   et stable (Large 4 est en préversion), moins cher que Medium 3.5. Entrées : grille et politique complète (46
   passages) dans le message système, puis avis, réponse, citations et action. Le juge ne voit ni la `raison` ni le
   `cas` du générateur (ancrage), ni les signaux de `signaux_redaction` (contrôles indépendants).
-- Calibration sur 20 réponses v4 de `rag_dev`, notées par Martin avant le juge. Règle fixée avant de lancer le juge,
+- Calibration sur 20 réponses v4 de `rag_dev`, notées à la main avant le juge. Règle fixée avant de lancer le juge,
   **appliquée critère par critère** (positif = critère à non) : rappel >= 0,80, précision >= 0,67 et kappa >= 0,40 ;
-  juge accepté si les 3 critères passent ; au moins 5 « non » et 5 « oui » de Martin par critère, sinon 10 réponses de
+  juge accepté si les 3 critères passent ; au moins 5 « non » et 5 « oui » humains par critère, sinon 10 réponses de
   plus ; deux versions du prompt du juge au maximum, puis Large 4, puis notation à la main de la comparaison.
-  Raison (23 oct.) : les notes de Martin comptent 18 fautives sur 20 ; sur le verdict global, un juge qui dit
+  Raison : les notes humaines comptent 18 fautives sur 20 ; sur le verdict global, un juge qui dit
   « fautive » à tout passait (rappel 1,00, précision 0,90). Par critère, non / oui : action 12 / 8, fondée 9 / 11,
   ton 14 / 6 ; le kappa ferme le cas de « ton », où ce juge garde une précision de 0,70.
-- Calibration de `juge_v1` (23 oct., 20 réponses) : action conforme acceptée (rappel 1,00, précision 0,92, kappa
+- Calibration de `juge_v1` (20 réponses) : action conforme acceptée (rappel 1,00, précision 0,92, kappa
   0,89), fondée acceptée (1,00 ; 0,69 ; 0,61), **ton refusé** (rappel 0,50, kappa 0,00) -> juge refusé. Causes lues
   dans les raisons : le juge note la politesse et pas la précision (7 « non » ratés sur des réponses vagues, une
   faute rejetée sur le fabricant, un détail de santé repris), et pénalise l'enthousiasme face aux 2 avis du cas B.
@@ -376,11 +376,11 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   mots concrets ; registre adapté, enthousiasme normal au cas B ; aucune faute rejetée ; aucun détail de santé ou
   personnel ; aucun jargon) ; `raison` doit citer les mots qui nomment le problème. Grille précisée (ambiguïté
   levée, cas prévu par le protocole) : un passage cité doit énoncer la phrase **et** s'appliquer à l'avis ; citer un
-  passage hors sujet rend la réponse non fondée. Martin passe en conséquence 2 de ses notes à fondée = non
+  passage hors sujet rend la réponse non fondée. 2 notes humaines passent en conséquence à fondée = non
   (`B01D8E7ZXO`, P23 cité sans rapport ; `B07D95B76V`, P32 cité pour un corps étranger), par cohérence avec 2 autres
   notes déjà à non pour la même raison. Biais du gagnant : v2 est réglée sur les mêmes 20 réponses ; garde-fou :
   relecture de 10 jugements de `rag_eval`.
-- Calibration de `juge_v2` (23 oct.) : action acceptée (kappa 0,79), **fondée refusée** (rappel 0,55, précision
+- Calibration de `juge_v2` : action acceptée (kappa 0,79), **fondée refusée** (rappel 0,55, précision
   0,55, kappa −0,01 : 5 fausses alertes sur des remerciements sans engagement, que le juge sanctionne une seconde
   fois ; 5 fautes ratées, dont le numéro de commande non cité et P05), **ton refusé** (rappel 0,93, précision 0,77,
   kappa 0,31) -> juge refusé. Pas de combinaison des versions critère par critère (biais du gagnant).
@@ -389,16 +389,16 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   version datée, préversion publique : mesure moins reproductible), avec `juge_v2` inchangé, une seule fois.
   Option `--modele` de `juger`, `calibrer` et `comparer` ; un juge autre que `JUGE_MODEL` écrit dans
   `jugements_<part>_<mode>_<prompt>_<modele>.jsonl`. Si Large 4 échoue : le juge sert seulement pour
-  `action_conforme` (validée deux fois, kappa 0,89 et 0,79) ; fondée et ton restent mesurés par les 20 notes de
-  Martin et par les garde-fous en code.
-- Calibration de Large 4 (`mistral-large-4-0`, `juge_v2`, `reasoning_effort="none"`, `top_p=1`, 23 oct.) : action
+  `action_conforme` (validée deux fois, kappa 0,89 et 0,79) ; fondée et ton restent mesurés par les 20 notes
+  humaines et par les garde-fous en code.
+- Calibration de Large 4 (`mistral-large-4-0`, `juge_v2`, `reasoning_effort="none"`, `top_p=1`) : action
   acceptée (rappel 0,83, précision 0,83, kappa 0,58), fondée refusée (rappel 0,64 ; précision 0,78 ; kappa 0,41),
   ton refusé (« non » aux 20 réponses, kappa 0 : il exige aussi des détails concrets dans les remerciements du cas
   B) -> refusé. **Décision, appliquée telle que fixée avant : on arrête de régler le juge.** Le juge retenu est
   `mistral-large-2512` avec `juge_v2` (configuration par défaut, kappa 0,79 sur l'action), **pour `action_conforme`
-  seulement**. Fondée et ton : notes de Martin (20 réponses) et garde-fous en code ; le README le dira.
-  Constat commun aux trois juges : v4 est fautive sur 17 à 20 réponses sur 20, comme dans les notes de Martin.
-- **Prompt `rag_v5` avant la comparaison A / B** (décision de Martin, 23 oct.) : la comparaison se fera avec v5, pas
+  seulement**. Fondée et ton : notes humaines (20 réponses) et garde-fous en code ; le README le dira.
+  Constat commun aux trois juges : v4 est fautive sur 17 à 20 réponses sur 20, comme dans les notes humaines.
+- **Prompt `rag_v5` avant la comparaison A / B** : la comparaison se fera avec v5, pas
   v4. Cible : le choix du cas. `raison` commence par la phrase la plus négative de l'avis, citée entre guillemets,
   ou « no negative phrase » ; le cas B n'est permis que dans ce dernier cas (une note de 1 à 3 étoiles impose de
   relire) ; liste élargie de ce qui est une plainte (couleur, plus petit, plus vieux, différent d'habitude, déception) ;
@@ -407,29 +407,29 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   fiche ; règle 6 : nommer le problème dans les mots du client, ne rejeter la faute sur personne. Mesure : action
   conforme selon le juge, v5 contre v4, appariée, sur les 50 avis de `rag_dev` (`juge bilan --contre rag_v4`).
   Limite : le juge a été calibré sur des réponses v4 ; sa validité sur l'action est supposée se transférer à v5.
-- Bilan de `rag_v5` (23 oct., 50 avis de `rag_dev`, juge sur l'action) : action conforme 0,38 contre 0,40 pour v4,
+- Bilan de `rag_v5` (50 avis de `rag_dev`, juge sur l'action) : action conforme 0,38 contre 0,40 pour v4,
   écart −0,02 [−0,18 ; +0,14], 9 avis gagnés contre 10 ; cas B 52 % (v4 46 %), cas A 20 % (v4 8 %). **v5 non
   adoptée** (pas de gain, et régression de sécurité : éclats de noyaux escaladés par v4, avoir en v5). Diagnostic :
   sur 26 cas B, 22 `raison` citent une phrase négative (« "I do not like this paste" », « "horrible" ») puis choisissent
   quand même B : le modèle trouve la preuve mais n'applique pas la règle. Sur-escalade aussi (gaz, crampes, odeur
-  chimique, chocolat blanchi) ; la frontière malaise / goût est floue entre la politique (P29), Martin et le juge.
-- **Relance corrective `rag_v5c`** (décision de Martin, 23 oct.) : prompt v5 inchangé ; `cas_b_contredit` (code)
+  chimique, chocolat blanchi) ; la frontière malaise / goût est floue entre la politique (P29), l'annotateur et le juge.
+- **Relance corrective `rag_v5c`** : prompt v5 inchangé ; `cas_b_contredit` (code)
   détecte un cas B dont la `raison` ne commence pas par « no negative phrase » ; une seule relance, avec la première
   réponse et `message_correction` (qui cite la raison et interdit le cas B) ; si la relance choisit encore B, la
   réponse est gardée et signalée `cas_b_contredit` pour un humain ; la première version est gardée dans
   `avant_correction`. Option `--correction` de `rag repondre` ; réponses `reponses_<part>_<mode>_rag_v5c.jsonl`.
   Mesure et règle d'adoption identiques à v5 ; si v5c échoue aussi, A contre B se fait avec v4.
-- Bilan de `rag_v5c` (23 oct., 50 avis) : **action conforme 0,70 contre 0,40**, +0,30 [+0,12 ; +0,48], 20 avis
+- Bilan de `rag_v5c` (50 avis) : **action conforme 0,70 contre 0,40**, +0,30 [+0,12 ; +0,48], 20 avis
   gagnés contre 5, p = 0,004 ; cas B 8 % ; 18 relances, aucun cas B restant. **Règle d'adoption non remplie** :
   l'avis aux éclats de noyaux, escaladé par v4, reçoit un avoir. Signaux en code 12 % -> 34 %, surtout
   `condition_supposee` (1 -> 9, dont 5 réponses relancées : « Since this was your first purchase... »).
-- **`rag_v5d`, relance étendue** (décision de Martin, 23 oct., dernière itération du générateur avant A / B) : la
+- **`rag_v5d`, relance étendue** (dernière itération du générateur avant A / B) : la
   relance se déclenche aussi sur un mot de sécurité dans l'avis quand l'action n'est pas `escalade_securite`
   (message qui demande de revérifier le cas A sans l'imposer, le détecteur ayant des faux positifs) et sur une
   condition supposée (message qui demande le conditionnel). Une seule relance au total, messages réunis ; motifs
   gardés dans `avant_correction.relances`. Option `--correction-etendue` ; réponses `rag_v5d`. Même mesure, même
   règle d'adoption ; ensuite A contre B sur `rag_eval` avec la meilleure version adoptée (v4 si aucune).
-- **Version retenue : `rag_v5d`** (prompt `rag_v5` + `--correction-etendue`), décision de Martin du 23 oct.
+- **Version retenue : `rag_v5d`** (prompt `rag_v5` + `--correction-etendue`).
   Bilan sur 50 avis de `rag_dev` : action conforme 0,74 contre 0,40 pour v4, +0,34 [+0,18 ; +0,50], 20 avis gagnés
   contre 3 ; cas B 46 % -> 8 % ; `condition_supposee` 4 ; entrée moyenne 3 710 tokens (v4 : 2 185).
   **Règle d'adoption corrigée après la mesure, à découvert.** La règle initiale (« aucune escalade de v4 perdue »)
@@ -438,13 +438,13 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   noyaux (P28, escaladés par v4 ; réponse signalée `securite_a_verifier` pour l'humain) ; la diarrhée est ratée par
   les deux (signalée). Coût : sur-escalade (poussière, chips rances, épice en bloc). Risque de cette correction :
   une histoire écrite après coup ; atténué par le tableau chiffré et par cette note.
-- Arrêt des itérations du générateur après v5d (Martin, 23 oct.) : rendements décroissants (0,40 -> 0,70 -> 0,74) ;
+- Arrêt des itérations du générateur après v5d : rendements décroissants (0,40 -> 0,70 -> 0,74) ;
   le cas restant (noyaux) bute sur le modèle. Erreurs connues, signalées par le code : `securite_a_verifier`,
   `condition_supposee`, `citation_inconnue` (6 citations hors des 8 passages fournis).
 - **A contre B** : 50 premiers avis de `rag_eval`, `rag_v5d` dans les deux modes, juge `mistral-large-2512` +
   `juge_v2` ; décision sur l'action conforme seule (`juge comparer --prompt rag_v5d`), à côté coût, latence, longueur
   et signaux (dont `citation_inconnue`, impossible en mode `plein`). `rag_eval` reste gelé : rien n'est réglé après.
-- **Résultat A contre B** (23 oct., 50 avis de `rag_eval`, `rag_v5d`) : action conforme A (RAG) 0,68, B (toute la
+- **Résultat A contre B** (50 avis de `rag_eval`, `rag_v5d`) : action conforme A (RAG) 0,68, B (toute la
   politique) 0,78 ; B − A = +0,10 [−0,02 ; +0,22], 8 avis gagnés par B contre 3, test du signe p = 0,23 : **écart
   non démontré**. Signaux en code A 22 %, B 8 %. Entrée moyenne A 3 553 tokens, B 10 795 ; sortie 182 / 183 ; latence
   médiane 1,55 / 1,89 s ; longueur 73 / 78 mots. Fondée et ton (juge non validé, pour information) : A 0,38 / 0,50,
@@ -452,14 +452,14 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   réponse ; sans cache, B coûterait ~2,7 fois A. **Lecture** : à 46 passages, mettre toute la politique dans le
   prompt fait au moins aussi bien que le RAG, plus simplement (pas d'index, pas de passage raté, pas de citation hors
   passages), pour un coût voisin et +0,3 s de latence. Le RAG redevient nécessaire quand le corpus dépasse le
-  contexte (~1 500 passages de cette taille) ou quand les droits d'accès diffèrent. Pronostic du cours 5 (section 10)
-  confirmé.
-- **Décision de Martin (23 oct.) : la version finale du service reste le RAG** (`--mode rag`, k = 8, `rag_v5d`) ;
+  contexte (~1 500 passages de cette taille) ou quand les droits d'accès diffèrent. Le pronostic écrit avant la
+  mesure est confirmé.
+- **Décision : la version finale du service reste le RAG** (`--mode rag`, k = 8, `rag_v5d`) ;
   le mode `plein` reste disponible en option. Raisons : l'écart n'est pas démontré (p = 0,23) ; le RAG envoie 3 fois
   moins de tokens (3 553 contre 10 795, ~2,7 fois moins cher sans cache) et répond plus vite (1,55 s contre 1,89 s) ;
   son coût ne dépend pas de la taille du corpus. Prix assumé : action conforme 0,68 contre 0,78 en estimation
   ponctuelle, et plus de signaux (22 % contre 8 %, dont des citations hors des passages fournis), relus par un humain.
-- Fichiers et commandes depuis le 23 oct. : `rag repondre` et `montrer` prennent `--prompt` (défaut `PROMPT_RAG`,
+- Fichiers et commandes : `rag repondre` et `montrer` prennent `--prompt` (défaut `PROMPT_RAG`,
   désormais `rag_v5`) ; les jugements portent le prompt des réponses dans leur nom
   (`jugements_<part>_<mode>_<prompt RAG>_<prompt juge>[_<modèle>].jsonl`) ; `calibrer` lit les notes du prompt
   demandé (`--prompt`, défaut `rag_v4`) ; `comparer` décide sur l'action conforme seule, fondée et ton affichés
@@ -469,24 +469,24 @@ qualite trop large, frontière livraison / emballage incohérente (21 avis « ar
   réponse seule, pas de biais de position). Analyse appariée : écart de taux d'acceptables, test du signe sur les avis
   discordants, intervalle bootstrap apparié ; à côté : taux par critère, signaux en code, longueur, coût, latence.
 - Code : `src/juge.py` (commandes noter, juger, calibrer, comparer), grille `prompts/juge_v1.txt` ; fichiers
-  `data/rag/notes_martin_<part>.jsonl` et `data/rag/jugements_<part>_<mode>_<prompt juge>.jsonl`. Pauses : 25 s entre
+  `data/rag/notes_humaines_<part>.jsonl` et `data/rag/jugements_<part>_<mode>_<prompt juge>.jsonl`. Pauses : 25 s entre
   deux jugements (~8 000 tokens chacun, `--pause` pour l'ajuster aux limites du compte) ; 23 s entre deux réponses en
   mode `plein` (`PAUSE_PLEIN_S` dans `src/rag.py`, ~7 600 tokens à 20 000 tokens/min).
 
 ## Coûts (hypothèses à remplacer par les mesures réelles)
-- Mesuré le 12 oct. 2026 (prompt v1, mistral-small, 200 avis) : 266 tokens en entrée, 47 en sortie en moyenne ;
+- Mesuré (prompt v1, mistral-small, 200 avis) : 266 tokens en entrée, 47 en sortie en moyenne ;
   latence médiane 0,95 s, p95 3,1 s (retries probables, non enregistrés : ajouter un champ `attempts`).
 - Prompt v2 (1 121 caractères contre 795) : 335 tokens en entrée, 43 en sortie ; latence médiane 0,87 s, p95 1,7 s ;
   0,015 $ pour 200 avis, soit ~7,6 $ pour 100 000 avis avec les prix ci-dessous (prix encore à vérifier dans la console).
 - Hypothèse initiale : ~600 tokens de prompt système + ~80 d'avis en entrée, ~50 en sortie.
 - Mistral Small 4 : 0,15 $ / 0,60 $ par million de tokens (source tierce, 6 oct. 2026 ; mêmes chiffres sur la page
   du modèle de docs.mistral.ai le 13 oct. 2026, qui ne précise pas lequel est l'entrée ; console pas encore vérifiée).
-- Mesuré le 14 oct. 2026 (prompt v4, `mistral-small-2603`, 5 000 avis de train) : 790,6 tokens d'entrée, 45,6 de sortie,
+- Mesuré (prompt v4, `mistral-small-2603`, 5 000 avis de train) : 790,6 tokens d'entrée, 45,6 de sortie,
   0,7296 $, soit 14,59 $ pour 100 000 avis ; ~4 h d'appels (pause 2,2 s + latence médiane 0,67 s par avis).
 - 200 avis ~0,03 $ ; 5 000 avis ~0,66 $ ; 100 000 avis ~13 $.
 - Prix vérifiés le 15 oct. 2026 sur la page publique des prix (docs.mistral.ai, section Pricing), en $ par million de
   tokens : Mistral Small 4 entrée 0,15, entrée en cache 0,015, sortie 0,60 ; Ministral 3 8B entrée 0,15, entrée en
-  cache 0,015, sortie 0,15. Les 14,59 $ pour 100 000 avis mesurés le 14 oct. sont cohérents avec ces prix
+  cache 0,015, sortie 0,15. Les 14,59 $ pour 100 000 avis mesurés sur le train sont cohérents avec ces prix
   (790,6 x 0,15 + 45,6 x 0,60 = 146 $ par million d'avis), mais seulement en l'absence de cache.
 - **Facture réelle (console, 15 oct. 2026)** : 6,1 k requêtes (= les 6 100 appels du mois), 0,27 € sur le forfait API
   d'octobre (8,5 €). Prix du compte en € par million de tokens : entrée 0,13, entrée en cache ~0,013 (affiché 0,01),

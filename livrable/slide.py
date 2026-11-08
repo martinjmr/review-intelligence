@@ -2,8 +2,8 @@
 
 Usage :  python livrable/slide.py        (demande matplotlib, voir requirements.txt)
 Écrit livrable/synthese.png et .pdf (anglais, pour README.md) et livrable/synthese_fr.png et .pdf (français, pour
-README.fr.md). Chiffres recopiés de docs/CONVENTIONS.md (sections Résultats sur le test et Coûts, 15 oct. 2026 ;
-écart de rappel sécurité ajouté le 16 oct. 2026).
+README.fr.md). Chiffres recopiés de docs/CONVENTIONS.md (sections Résultats sur le test et Coûts ;
+écart de rappel sécurité compris).
 """
 from pathlib import Path
 

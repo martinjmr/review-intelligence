@@ -1,8 +1,8 @@
 """Jalon 2 : LLM-juge. Noter les réponses du RAG avec une grille de 3 critères oui / non, calibrer le juge sur les
-notes de Martin, puis comparer deux modes de génération (A = rag, B = plein) sur les mêmes avis.
+notes humaines, puis comparer deux modes de génération (A = rag, B = plein) sur les mêmes avis.
 
 Usage :
-  python -m src.juge noter --part rag_dev --n 20               # tes notes, AVANT de lancer le juge (terminal)
+  python -m src.juge noter --part rag_dev --n 20               # notes humaines, AVANT de lancer le juge (terminal)
   python -m src.juge page --part rag_dev --n 20                # ou : page HTML de notation, hors du terminal
   python -m src.juge juger --part rag_dev --mode rag --limit 20
   python -m src.juge calibrer --part rag_dev                   # matrice, métriques, désaccords
@@ -12,7 +12,7 @@ Usage :
   python -m src.juge bilan --part rag_dev --contre rag_v4      # action conforme : prompt actuel contre v4, apparié
   python -m src.juge comparer --part rag_eval                  # A contre B, sur les avis jugés dans les deux modes
 Lit : data/rag/reponses_<part>_<mode>_<prompt RAG>.jsonl (écrits par python -m src.rag repondre).
-Produit : data/rag/notes_martin_<part>.jsonl, data/rag/jugements_<part>_<mode>_<prompt juge>.jsonl.
+Produit : data/rag/notes_humaines_<part>.jsonl, data/rag/jugements_<part>_<mode>_<prompt juge>.jsonl.
 """
 import argparse
 import json
@@ -28,16 +28,16 @@ from src.label_llm import call_with_retry, load_prompt
 from src.rag import (DOSSIER, MARQUE, PROMPT_RAG, charger_corpus, charger_part, client_mistral, ic_bootstrap)
 
 JUGE_MODEL = "mistral-large-2512"   # Large 3, version datée : différent du générateur (mistral-small-2603)
-PROMPT_JUGE = "juge_v2"   # v2 (23 oct. 2026) : ton réécrit, citation hors sujet = non fondée ; v1 : ton refusé
+PROMPT_JUGE = "juge_v2"   # v2 : ton réécrit, citation hors sujet = non fondée ; v1 : ton refusé
 PAUSE_JUGE_S = 25.0   # ~8 000 tokens par jugement ; à 20 000 tokens/min -> 24 s. À ajuster aux limites du compte
 # Large 4 réfléchit par défaut (un ThinkChunk avant la réponse, qui épuisait les 400 tokens) : on le coupe pour juger
 # dans les mêmes conditions que Large 3, la `raison` tenant lieu de raisonnement. Large 3 ne connaît pas ce paramètre.
 REGLAGES_MODELE = {"mistral-large-4-0": {"reasoning_effort": "none"}}
 CRITERES = ("action_conforme", "fondee", "ton")
-SEUIL_RAPPEL = 0.80     # règle d'acceptation du juge, appliquée critère par critère (23 oct. 2026, avant le juge) :
+SEUIL_RAPPEL = 0.80     # règle d'acceptation du juge, appliquée critère par critère (fixée avant le juge) :
 SEUIL_PRECISION = 0.67  # sur le verdict global, 18 fautes sur 20 laissaient passer un juge qui dit « fautive » à tout
 SEUIL_KAPPA = 0.40      # sur « ton » (14 non sur 20), dire « non » à tout donne déjà une précision de 0,70 ; kappa 0
-MIN_PAR_CLASSE = 5      # au moins 5 « non » et 5 « oui » de ta part par critère, sinon noter 10 réponses de plus
+MIN_PAR_CLASSE = 5      # au moins 5 « non » et 5 « oui » humains par critère, sinon noter 10 réponses de plus
 GABARIT_PAGE = Path(__file__).with_name("gabarit_notation.html")
 
 
@@ -86,14 +86,14 @@ def construire_messages_juge(grille, passages, avis, reponse):
 # ---------- Verdict et calibration ----------
 
 def est_fautive(note):
-    """Vrai si au moins un des 3 critères est à non. Même définition pour tes notes et pour celles du juge."""
+    """Vrai si au moins un des 3 critères est à non. Même définition pour les notes humaines et pour celles du juge."""
     return not all(note[c] for c in CRITERES)
 
 
 def matrice_fautes(notes_ref, notes_juge, positif=est_fautive):
     """{"VP", "FP", "FN", "VN"} sur les review_id notés des deux côtés ; « positif » = fautive par défaut.
 
-    notes_ref (tes notes) et notes_juge : {review_id: note}. VP = faute attrapée, FP = fausse alerte,
+    notes_ref (notes humaines) et notes_juge : {review_id: note}. VP = faute attrapée, FP = fausse alerte,
     FN = faute ratée, VN = bonne réponse reconnue. Les review_id présents d'un seul côté sont ignorés.
     positif : la fonction qui dit si une note est un « positif » ; pour un critère c, lambda n: not n[c].
     """
@@ -110,12 +110,12 @@ def matrices_par_critere(notes_ref, notes_juge):
 
 
 def regle_acceptation(m):
-    """La règle du 23 oct. 2026 sur la matrice d'un critère : "trop peu" si tu as mis moins de MIN_PAR_CLASSE « non »
+    """La règle d'acceptation sur la matrice d'un critère : "trop peu" si les notes humaines ont moins de MIN_PAR_CLASSE « non »
     ou « oui » ; sinon "accepté" si rappel >= SEUIL_RAPPEL, précision >= SEUIL_PRECISION et kappa >= SEUIL_KAPPA,
     "refusé" sinon.
 
     Les « oui » comptent aussi : sans eux, un juge qui répond « non » à tout aurait une précision flatteuse. Le kappa
-    ferme le dernier trou : quand tu as mis beaucoup de « non », la précision d'un tel juge reste au-dessus du seuil.
+    ferme le dernier trou : quand les notes humaines comptent beaucoup de « non », la précision d'un tel juge reste au-dessus du seuil.
     """
     if min(m["VP"] + m["FN"], m["FP"] + m["VN"]) < MIN_PAR_CLASSE:
         return "trop peu"
@@ -197,7 +197,7 @@ def chemin_jugements(part, mode, modele=JUGE_MODEL, prompt_rag=PROMPT_RAG):
 
 
 def chemin_notes(part):
-    return DOSSIER / f"notes_martin_{part}.jsonl"
+    return DOSSIER / f"notes_humaines_{part}.jsonl"
 
 
 def reponses_dans_l_ordre(part, mode, n=None, prompt=PROMPT_RAG):
@@ -233,7 +233,7 @@ def afficher_reponse(avis, r, par_id):
 
 
 def cmd_noter(part, n, mode):
-    """Tes 3 oui / non pour chaque réponse. Ni la raison, ni le cas, ni les signaux ne sont affichés : ta note doit
+    """Les 3 oui / non humains pour chaque réponse. Ni la raison, ni le cas, ni les signaux ne sont affichés : la note doit
     venir de l'avis, de la réponse et de la politique seulement."""
     passages = charger_corpus()
     par_id = {p["id"]: p for p in passages}
@@ -268,7 +268,7 @@ def cmd_noter(part, n, mode):
 
 def cmd_page(part, n, mode):
     """Même contenu que noter, dans une page HTML autonome (data/rag/notation_<part>.html) : guide, politique
-    filtrable, sauvegarde dans le navigateur, bouton qui télécharge notes_martin_<part>.jsonl au format de noter."""
+    filtrable, sauvegarde dans le navigateur, bouton qui télécharge notes_humaines_<part>.jsonl au format de noter."""
     passages = charger_corpus()
     avis = charger_part(part).set_index("review_id")
     reponses = reponses_dans_l_ordre(part, mode, n)
@@ -338,13 +338,13 @@ def cmd_calibrer(part, mode, modele, prompt):
     m = matrice_fautes(notes, jugements)
     met = metriques_calibration(m)
     print(f"\nVerdict global (pour information, il ne décide rien) :\n"
-          f"                 toi : fautive   toi : acceptable\n"
+          f"                 réf : fautive   réf : acceptable\n"
           f"juge : fautive        {m['VP']:3d}             {m['FP']:3d}\n"
           f"juge : acceptable     {m['FN']:3d}             {m['VN']:3d}\n"
           f"accord {fmt(met['accord'])} · kappa {fmt(met['kappa'])}")
     print(f"\nPar critère (positif = « non ») ; règle : rappel >= {SEUIL_RAPPEL}, précision >= {SEUIL_PRECISION} et "
-          f"kappa >= {SEUIL_KAPPA}, avec au moins {MIN_PAR_CLASSE} « non » et {MIN_PAR_CLASSE} « oui » de ta part")
-    print(f"{'critère':<16} {'non toi/juge':>12} {'rappel':>7} {'IC 95 %':>13} {'précision':>9} {'kappa':>6} "
+          f"kappa >= {SEUIL_KAPPA}, avec au moins {MIN_PAR_CLASSE} « non » et {MIN_PAR_CLASSE} « oui » humains")
+    print(f"{'critère':<16} {'non réf/juge':>12} {'rappel':>7} {'IC 95 %':>13} {'précision':>9} {'kappa':>6} "
           f"{'accord':>6}  décision")
     decisions = {}
     for c, mc in matrices_par_critere(notes, jugements).items():
@@ -365,9 +365,9 @@ def cmd_calibrer(part, mode, modele, prompt):
     print(f"\n{len(desaccords)} réponses avec au moins un critère en désaccord :")
     for i in desaccords:
         n_, j_ = notes[i], jugements[i]
-        print(f"\n--- {i[-24:]}  toi {''.join('o' if n_[c] else 'n' for c in CRITERES)} · juge "
+        print(f"\n--- {i[-24:]}  réf {''.join('o' if n_[c] else 'n' for c in CRITERES)} · juge "
               f"{''.join('o' if j_[c] else 'n' for c in CRITERES)}  (action, fondée, ton)"
-              f"\n    ton commentaire : {n_['commentaire'] or '–'}\n    raison du juge : {j_['raison']}")
+              f"\n    commentaire : {n_['commentaire'] or '–'}\n    raison du juge : {j_['raison']}")
 
 
 def cmd_bilan(part, mode, prompt, contre, modele):
@@ -451,7 +451,7 @@ def main():
     p.add_argument("--part", default="rag_dev")
     p.add_argument("--mode", choices=["rag", "plein"], default="rag")
     p.add_argument("--modele", default=JUGE_MODEL)
-    p.add_argument("--prompt", default="rag_v4", help="tes 20 notes portent sur les réponses rag_v4")
+    p.add_argument("--prompt", default="rag_v4", help="les 20 notes humaines portent sur les réponses rag_v4")
     p = sous.add_parser("bilan")
     p.add_argument("--part", default="rag_dev")
     p.add_argument("--mode", choices=["rag", "plein"], default="rag")

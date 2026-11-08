@@ -1,7 +1,7 @@
 """Étape 2 : annoter à la main les 300 avis de test, à l'aveugle.
 
 Usage :
-  python -m src.annotate --part explo            # échauffement sur explo (q pour arrêter quand tu veux)
+  python -m src.annotate --part explo            # échauffement sur explo (q pour arrêter à tout moment)
   python -m src.annotate                         # passe 1 : les 300 avis de test, reprise automatique
   python -m src.annotate --revoir doutes         # fin de passe 1 : trancher les avis marqués « ! »
   python -m src.annotate --corriger "mot"        # revoir les avis déjà annotés dont le titre contient « mot »
@@ -28,7 +28,7 @@ from src.label_llm import Motif, check_rules
 POOL = Path("data/pool.parquet")
 OUT = Path("data/annotations_test.jsonl")
 GUIDE_VERSION = "v1"      # à changer à chaque modification du guide (docs/guide_annotation.md)
-N_REANNOT = 50            # avis ré-annotés en passe 2 (décision du 13 oct. 2026)
+N_REANNOT = 50            # avis ré-annotés en passe 2
 MIN_DAYS = 3              # délai minimal entre passe 1 et passe 2, pour oublier ses réponses
 
 MOTIFS = get_args(Motif)
@@ -37,7 +37,7 @@ KEYS = {"r": "reception", "g": "gout_texture", "f": "fraicheur_securite",
 DOUTE = "!"
 RETOUR = "<"
 AIDE = ("  r=reception  g=gout_texture  f=fraicheur_securite  n=non_conforme  p=prix  a=autre\n"
-        "  plusieurs lettres = plusieurs motifs (ex. rg) ; ajoute ! si tu hésites (ex. g!) ;\n"
+        "  plusieurs lettres = plusieurs motifs (ex. rg) ; ! en cas de doute (ex. g!) ;\n"
         "  < = revenir à l'avis précédent (la nouvelle réponse remplace l'ancienne) ;\n"
         "  ? = cette aide ; q = quitter (tout est déjà enregistré)")
 
@@ -126,7 +126,7 @@ def ask():
         try:
             return parse_answer(raw)
         except ValueError as e:
-            print(f"  refusé : {e}  (tape ? pour l'aide)")
+            print(f"  refusé : {e}  (? pour l'aide)")
 
 
 def annotate(rows, round_, out_path=OUT, previous=None):
@@ -140,7 +140,7 @@ def annotate(rows, round_, out_path=OUT, previous=None):
             t0 = time.perf_counter()
             answer = ask()
             if answer is None:
-                print("Arrêt. Relance la même commande pour reprendre.")
+                print("Arrêt. Relancer la même commande pour reprendre.")
                 break
             if answer == RETOUR:
                 if i == 0:
@@ -149,7 +149,7 @@ def annotate(rows, round_, out_path=OUT, previous=None):
                 continue
             motifs, doute = answer
             duree = time.perf_counter() - t0
-            note = input("  note sur ton doute (Entrée pour passer)> ").strip() if doute else ""
+            note = input("  note sur le doute (Entrée pour passer)> ").strip() if doute else ""
             line = {
                 "review_id": row["review_id"],
                 "round": round_,
@@ -208,14 +208,14 @@ def main():
 
     if args.revoir == "doutes":
         ids = [rid for (rid, rnd), a in ann.items() if rnd == 1 and a["doute"]]
-        previous = {rid: [("ta réponse", ann[(rid, 1)])] for rid in ids}
+        previous = {rid: [("réponse précédente", ann[(rid, 1)])] for rid in ids}
         print(f"{len(ids)} avis marqués « ! » à trancher (la nouvelle réponse remplace l'ancienne)")
         annotate([by_id[r] for r in ids], 1, out, previous=previous)
     elif args.corriger:
         mot = args.corriger.lower()
         ids = [r["review_id"] for r in test.to_dict("records")
                if r["review_id"] in done1 and mot in str(r["title"]).lower()]
-        previous = {rid: [("ta réponse", ann[(rid, 1)])] for rid in ids}
+        previous = {rid: [("réponse précédente", ann[(rid, 1)])] for rid in ids}
         print(f"{len(ids)} avis déjà annotés dont le titre contient « {args.corriger} »")
         annotate([by_id[r] for r in ids], 1, out, previous=previous)
     elif args.revoir == "desaccords":
@@ -223,34 +223,34 @@ def main():
                if rnd == 2 and set(a["motifs"]) != set(ann[(rid, 1)]["motifs"]) and (rid, 3) not in ann]
         previous = {rid: [("passe 1", ann[(rid, 1)]), ("passe 2", ann[(rid, 2)])] for rid in ids}
         print(f"{len(ids)} désaccords entre passes à arbitrer (passe 3).")
-        print("Lance d'abord `python -m src.metrics accord` : l'arbitrage ne change pas cette mesure,")
+        print("Lancer d'abord `python -m src.metrics accord` : l'arbitrage ne change pas cette mesure,")
         print("mais c'est elle qu'on veut garder.")
         annotate([by_id[r] for r in ids], 3, out, previous=previous)
     elif args.ids:
         wanted = [r for r in Path(args.ids).read_text(encoding="utf-8").split() if r in by_id]
         todo = [by_id[r] for r in wanted if r not in done1]
-        print(f"{len(todo)} avis à faire sur {len(wanted)} listés dans {args.ids}. Tape ? pour l'aide.")
+        print(f"{len(todo)} avis à faire sur {len(wanted)} listés dans {args.ids}. ? pour l'aide.")
         annotate(todo, 1, out)
     elif args.round == 1:
         todo = [r for r in test.to_dict("records") if r["review_id"] not in done1]
-        print(f"{len(todo)} avis à faire. Tape ? pour l'aide.")
+        print(f"{len(todo)} avis à faire. ? pour l'aide.")
         annotate(todo, 1, out)
         print_shares(load_annotations(out), 1)
     else:
         if len(done1) < len(test):
-            print("La passe 1 n'est pas terminée : termine-la avant la passe 2.")
+            print("La passe 1 n'est pas terminée : la finir avant la passe 2.")
             return
         last = max(datetime.fromisoformat(a["ts"]) for (rid, rnd), a in ann.items() if rnd == 1)
         days = (datetime.now() - last).days
         if days < MIN_DAYS:
-            print(f"Attention : passe 1 terminée il y a {days} jour(s). Attends {MIN_DAYS} jours "
-                  "pour ne pas te souvenir de tes réponses.")
+            print(f"Attention : passe 1 terminée il y a {days} jour(s). Attendre {MIN_DAYS} jours "
+                  "pour ne pas se souvenir des réponses.")
             if input("Continuer quand même ? (o/n) ").strip().lower() != "o":
                 return
         ids = pick_reannotation(test["review_id"].tolist(), args.n, seed=args.seed)
         todo = [by_id[r] for r in ids if (r, 2) not in ann]
         print(f"Passe 2 : {len(ids) - len(todo)}/{len(ids)} faits, {len(todo)} à faire. "
-              "Tes réponses de la passe 1 ne sont pas affichées.")
+              "Les réponses de la passe 1 ne sont pas affichées.")
         annotate(todo, 2, out)
 
 

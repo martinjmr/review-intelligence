@@ -44,15 +44,15 @@
 <header>
   <h1>Notation des réponses · __PART__</h1>
   <span id="compteur"></span>
-  <button class="principal" id="telecharger">Télécharger notes_martin___PART__.jsonl</button>
+  <button class="principal" id="telecharger">Télécharger notes_humaines___PART__.jsonl</button>
   <button id="effacer">Tout effacer</button>
 </header>
 <main>
 <details class="guide" open>
-  <summary>Guide de notation (grille juge_v1, 23 oct. 2026)</summary>
+  <summary>Guide de notation (grille juge_v1)</summary>
   <p>Pour chaque réponse, trois questions <b>oui / non</b>. Un seul manquement suffit pour mettre <b>non</b>.
-  Une réponse est <b>acceptable</b> si elle a 3 oui. Note avec l'avis, la réponse et la politique seulement ;
-  la raison, le cas et les signaux du générateur sont cachés exprès. Note toutes les réponses <b>avant</b> de lancer le juge.</p>
+  Une réponse est <b>acceptable</b> si elle a 3 oui. Noter avec l'avis, la réponse et la politique seulement ;
+  la raison, le cas et les signaux du générateur sont cachés exprès. Noter toutes les réponses <b>avant</b> de lancer le juge.</p>
   <h3>1. Action conforme : le cas et l'action sont ceux que prévoit la politique</h3>
   <ul>
     <li><b>A. Sécurité</b> (corps étranger, éclats, noyaux, cailloux, verre, plastique, métal, malaise, allergie,
@@ -91,7 +91,7 @@
   <h3>Règles de chevauchement</h3>
   <ul>
     <li>Une condition supposée remplie relève de <b>fondée</b>. Si l'action est fausse aussi, les deux sont à non.</li>
-    <li>Si tu changes d'avis sur une définition en cours de route, renote les réponses déjà faites.</li>
+    <li>En cas de changement d'avis sur une définition en cours de route, renoter les réponses déjà faites.</li>
     <li>Le commentaire est facultatif mais précieux : une phrase sur ce qui est faux servira à lire les désaccords avec le juge.</li>
   </ul>
 </details>
@@ -227,7 +227,7 @@ document.getElementById("telecharger").addEventListener("click", () => {
       action_conforme: n.action_conforme, fondee: n.fondee, ton: n.ton, commentaire: (n.commentaire || "").trim()});
   });
   const blob = new Blob([lignes.join("\n") + "\n"], {type: "application/json"});
-  const a = el("a", {href: URL.createObjectURL(blob), download: "notes_martin_" + D.part + ".jsonl"});
+  const a = el("a", {href: URL.createObjectURL(blob), download: "notes_humaines_" + D.part + ".jsonl"});
   document.body.append(a); a.click(); a.remove();
 });
 document.getElementById("effacer").addEventListener("click", () => {
