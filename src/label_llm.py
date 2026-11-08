@@ -13,7 +13,7 @@ from typing import Literal
 import pandas as pd
 from pydantic import BaseModel
 
-MODEL = "mistral-small-2603"   # figé : l'alias mistral-small-latest peut changer de ciblePOOL = Path("data/pool.parquet")
+MODEL = "mistral-small-2603"   # figé : l'alias mistral-small-latest peut changer de cible
 POOL = Path("data/pool.parquet")
 MAX_ATTEMPTS = 5
 PAUSE_S = 2.2            # mistral-small : 20 000 tokens/min max -> ~28 avis/min
